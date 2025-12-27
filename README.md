@@ -1,6 +1,6 @@
 # Shani Bot
 
-Ein leistungsstarker Discord-Bot für die Verwaltung von Raider-Setcards, dynamische Auto-Voice Channels und Twitch-Live-Alerts ohne API-Key.
+Ein leistungsstarker Discord-Bot für die Verwaltung von Raider-Setcards, dynamische Auto-Voice Channels (2er, 3er, Open) und Twitch-Live-Alerts ohne API-Key.
 
 ## 🚀 Features
 
@@ -10,23 +10,27 @@ Ein leistungsstarker Discord-Bot für die Verwaltung von Raider-Setcards, dynami
 *   **Suche:** Finde Mitspieler basierend auf Filtern wie Plattform, Alter oder Spielstil mit `/setcard find`.
 *   **SQLite-Backend:** Schnelle und sichere Datenspeicherung.
 
-### 🔊 Auto-Voice (Squad Channels)
-*   **Dynamische Channels:** Beim Betreten eines "Join"-Channels wird automatisch ein neuer Voice-Channel ("Squad <User>") in einer Ziel-Kategorie erstellt.
-*   **Berechtigungsverwaltung:** Der Ersteller erhält automatisch Rechte zum Verwalten des Channels.
-*   **Automatischer Cleanup:** Leere Kanäle werden sofort gelöscht, um den Server sauber zu halten.
-*   **Echtzeit-Rename:** Ändert ein User seinen Anzeigenamen, während er in seinem Squad-Channel ist, wird der Kanal sofort umbenannt.
+### 🔊 Auto-Voice 2.0 (Squad Channels)
+*   **Drei Modi:** Dedizierte Join-Channels für **2er Squads**, **3er Squads** und **Open Squads** (unbegrenzt).
+*   **Eingeschränkte Rechte:** User können das Squad-Limit nicht mehr manipulieren, behalten aber Moderationsrechte (Kicken/Moven) und können den **Voice-Status** setzen.
+*   **Intelligenter Cleanup:** Aktiver Scan der Voice-Kategorie sorgt dafür, dass leere Kanäle sofort und zuverlässig gelöscht werden.
+*   **Echtzeit-Rename:** Automatische Namensanpassung bei Display-Name-Wechsel.
 
 ### 🟣 Twitch Live-Alerts (No-API)
-*   **Einfaches Setup:** Keine Registrierung bei der Twitch-API nötig. Einfach Kanal-URL angeben.
-*   **Präzise Erkennung:** Nutzt intelligentes Scraping mit Stabilisierungs-Logik, um Mehrfach-Pings bei kurzen Verbindungsabbrüchen zu verhindern.
-*   **Automatisches Editieren:** Wenn ein Stream endet, wird die Live-Nachricht automatisch in eine Offline-Meldung umgewandelt.
+*   **Einfaches Setup:** Keine Registrierung bei der Twitch-API nötig.
+*   **Automatisches Editieren:** Live-Nachrichten werden bei Stream-Ende automatisch in Offline-Meldungen umgewandelt.
+
+### 🔐 Rollen- & Berechtigungssystem
+*   **Hauptmenü:** Zentraler Einstiegspunkt über `/shani` mit rollenbasierter Button-Anzeige.
+*   **Admin- & Mod-Rollen:** Konfigurierbare Rollen für erweiterten Zugriff auf Bot-Funktionen.
+*   **Sichtbarkeit:** Administrative Befehle sind für normale User in Discord unsichtbar.
 
 ## 📋 Voraussetzungen
-*   Python 3.8+
+*   Python 3.12+
 *   `discord.py`
 *   `aiohttp`
 *   `python-dotenv`
-*   `PyNaCl` (optional, für Voice-Audio Support)
+*   `PyNaCl` (für Voice Support)
 
 ## ⚙️ Installation
 
@@ -54,15 +58,14 @@ Ein leistungsstarker Discord-Bot für die Verwaltung von Raider-Setcards, dynami
 
 ## 🛠️ Wichtige Befehle
 
-### Konfiguration
-*   `/setcard set_channel <#kanal>`: Legt den Kanal für Setcards fest.
-*   `/setup_autovoice <join-channel> <ziel-kategorie>`: Richtet das Auto-Voice System ein.
-*   `/setup_twitchlive2 <kanal-url> <#announce-kanal> [rolle]`: Aktiviert Twitch-Alerts.
+### Konfiguration (Nur Admins)
+*   `/shani_setup_roles`: Legt Admin- und Mod-Rollen fest.
+*   `/shani_status`: Zeigt die gesamte Bot-Konfiguration auf einen Blick.
+*   `/setup_autovoice`: Konfiguriert die Join-Channels und die Ziel-Kategorie.
 
 ### User
-*   `/setcard edit`: Erstellt oder bearbeitet die eigene Setcard.
-*   `/setcard me`: Zeigt die eigene Setcard an.
-*   `/setcard find`: Sucht nach anderen Spielern.
+*   `/shani`: Öffnet das interaktive Hauptmenü.
+*   `/setcard edit / me / find`: Verwaltung der Raider-Setcards.
 
 ## 🧹 Fehlerbehebung (Doppelte Commands)
 Falls Slash-Commands doppelt angezeigt werden, führe einmalig das Bereinigungs-Skript aus:

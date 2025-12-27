@@ -561,14 +561,21 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             return
 
         try:
-            await channel.set_permissions(
-                member,
-                manage_channels=False, # User darf das Limit/Namen NICHT selbst ändern
-                set_voice_channel_status=True, # User darf aber den Status (z.B. "Looten") setzen
-                move_members=True,     # User darf weiterhin Leute mufen/kicken
-                connect=True,
-                speak=True
-            )
+            # Berechtigungen vorbereiten (Prüfung auf Gültigkeit für discord.py)
+            # set_voice_channel_status ist relativ neu, wir stellen sicher, dass es keine Fehler wirft
+            perms_kwargs = {
+                "connect": True,
+                "speak": True,
+                "move_members": True,
+                "manage_channels": False
+            }
+            
+            # Prüfen ob die Berechtigung in dieser discord.py Version existiert
+            if hasattr(discord.PermissionOverwrite(), "set_voice_channel_status"):
+                perms_kwargs["set_voice_channel_status"] = True
+
+            await channel.set_permissions(member, **perms_kwargs)
+            
             await member.move_to(channel)
             # Nach dem Verschieben kurz warten und aufräumen
             await asyncio.sleep(1.5)
@@ -608,7 +615,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
 # SLASH COMMANDS: VOICE (1:1)
 # ============================================================
 @bot.tree.command(name="setup_autovoice", description="Richtet Auto-Voice ein: Join-Channels + Ziel-Kategorie.")
-@app_commands.checks.has_permissions(manage_guild=True)
+@app_commands.default_permissions(manage_guild=True)
 @app_commands.describe(
     create_channel_2="Voice-Channel für 2er Squads",
     create_channel_3="Voice-Channel für 3er Squads",
@@ -634,7 +641,7 @@ async def setup_autovoice(
     )
 
 @bot.tree.command(name="autovoice_status", description="Zeigt die aktuelle Auto-Voice Konfiguration an.")
-@app_commands.checks.has_permissions(manage_guild=True)
+@app_commands.default_permissions(manage_guild=True)
 async def autovoice_status(interaction: discord.Interaction):
     cfg = await get_guild_cfg(interaction.guild_id)
     if not cfg or not cfg.get("voice_category_id"):
@@ -662,8 +669,101 @@ async def autovoice_disable(interaction: discord.Interaction):
     await interaction.response.send_message("🛑 Auto-Voice wurde deaktiviert.", ephemeral=True)
 
 # ============================================================
-# GLOBAL STATUS COMMAND
+# GLOBAL STATUS & MENU COMMANDS
 # ============================================================
+class ShaniMenuView(discord.ui.View):
+    def __init__(self, member: discord.Member, cfg: dict):
+        super().__init__(timeout=60)
+        self.member = member
+        self.cfg = cfg
+
+        # Berechtigungen prüfen
+        is_admin = member.guild_permissions.manage_guild or (cfg.get("role_admin_id") and member.get_role(int(cfg["role_admin_id"])))
+        is_mod = is_admin or (cfg.get("role_mod_id") and member.get_role(int(cfg["role_mod_id"])))
+        
+        # Jeder darf Setcards (wenn nicht anders eingeschränkt)
+        can_setcard = True
+        if cfg.get("role_setcard_id"):
+             can_setcard = member.get_role(int(cfg["role_setcard_id"])) or is_mod
+
+        # Buttons hinzufügen
+        if can_setcard:
+            btn_sc = discord.ui.Button(label="Meine Setcard", style=discord.ButtonStyle.primary, custom_id="shani_menu_sc")
+            self.add_item(btn_sc)
+            
+            btn_find = discord.ui.Button(label="Raider suchen", style=discord.ButtonStyle.secondary, custom_id="shani_menu_find")
+            self.add_item(btn_find)
+
+        if is_mod:
+            btn_status = discord.ui.Button(label="Bot Status", style=discord.ButtonStyle.success, custom_id="shani_menu_status")
+            self.add_item(btn_status)
+        
+        if is_admin:
+             btn_roles = discord.ui.Button(label="Rollen-Setup", style=discord.ButtonStyle.danger, custom_id="shani_menu_roles")
+             self.add_item(btn_roles)
+
+@bot.tree.command(name="shani", description="Öffnet das Shani-Hauptmenü.")
+async def shani(interaction: discord.Interaction):
+    cfg = await get_guild_cfg(interaction.guild_id)
+    view = ShaniMenuView(interaction.user, cfg)
+    
+    embed = discord.Embed(
+        title="🤖 Shani Hauptmenü",
+        description="Wähle eine Option aus dem Menü unten.",
+        color=discord.Color.blue()
+    )
+    embed.set_footer(text="Raiders Cache • ARC Raiders")
+    
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+@bot.listen("on_interaction")
+async def shani_menu_listener(interaction: discord.Interaction):
+    if interaction.type != discord.InteractionType.component:
+        return
+    
+    cid = interaction.data.get("custom_id")
+    if not cid or not cid.startswith("shani_menu_"):
+        return
+
+    # Slash commands triggern (simuliert)
+    if cid == "shani_menu_sc":
+        # Wir können keine Slash Commands direkt triggern, aber wir rufen die Logik auf
+        # Einfachheitshalber verweisen wir hier auf die Befehle
+        await interaction.response.send_message("Nutze `/setcard me` oder `/setcard edit`.", ephemeral=True)
+    elif cid == "shani_menu_find":
+        await interaction.response.send_message("Nutze `/setcard find`.", ephemeral=True)
+    elif cid == "shani_menu_status":
+        await shani_status(interaction)
+    elif cid == "shani_menu_roles":
+        await interaction.response.send_message("Nutze `/shani_setup_roles`.", ephemeral=True)
+
+@bot.tree.command(name="shani_setup_roles", description="Legt Admin-, Mod- und Setcard-Rollen fest.")
+@app_commands.checks.has_permissions(manage_guild=True)
+@app_commands.describe(
+    admin_role="Rolle für Bot-Administratoren (voller Zugriff)",
+    mod_role="Rolle für Moderatoren (Status & Mod-Delete)",
+    setcard_role="Optional: Rolle, die Setcards nutzen darf (leer lassen für alle)"
+)
+async def shani_setup_roles(
+    interaction: discord.Interaction,
+    admin_role: discord.Role,
+    mod_role: discord.Role,
+    setcard_role: discord.Role | None = None
+):
+    await update_guild_cfg(
+        interaction.guild_id,
+        role_admin_id=admin_role.id,
+        role_mod_id=mod_role.id,
+        role_setcard_id=setcard_role.id if setcard_role else None
+    )
+    await interaction.response.send_message(
+        f"✅ Rollen konfiguriert:\n"
+        f"👑 Admin: {admin_role.mention}\n"
+        f"🛡️ Mod: {mod_role.mention}\n"
+        f"📝 Setcard: {setcard_role.mention if setcard_role else 'Alle User'}",
+        ephemeral=True
+    )
+
 @bot.tree.command(name="shani_status", description="Zeigt die gesamte Konfiguration des Bots für diesen Server.")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def shani_status(interaction: discord.Interaction):

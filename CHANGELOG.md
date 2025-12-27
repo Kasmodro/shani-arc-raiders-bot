@@ -1,11 +1,23 @@
 # Changelog – Shani Bot
 Alle relevanten Änderungen am Shani-Bot
 
-[0.9.1] – 2025-12-27 (Update)
+[0.9.2] – 2025-12-27 (Aktuelles Update)
+✨ Berechtigungs-System & Shani-Menü
+
+• **Rollenbasiertes System:** Einführung von Admin-, Mod- und Setcard-Rollen zur feingranularen Zugriffskontrolle (`/shani_setup_roles`).
+• **Shani Hauptmenü:** Neuer zentraler Befehl `/shani` mit dynamischen Buttons, die sich der Benutzerrolle anpassen.
+• **Kanal-Status:** Squad-Ersteller können jetzt den Voice-Status (z.B. "Suche Loot") setzen, ohne das User-Limit ändern zu können.
+• **Sichtbarkeit:** Administrative Befehle werden für normale User in der Discord-Befehlsliste jetzt automatisch ausgeblendet.
+
+🛠️ Voice- & Cleanup-Fixes
+• **Aggressives Cleanup:** Neuer Scan-Mechanismus für die Voice-Kategorie, der "Leichen" (leere Kanäle) zuverlässig entfernt.
+• **Kompatibilitäts-Fix:** Behebung von `Invalid permissions` Fehlern bei älteren discord.py Versionen (betreffend `set_voice_channel_status`).
+• **Stabilität:** Behebung von Datenbank-Fehlern (`Missing Column`) durch automatische Tabellen-Migration.
+
+[0.9.1] – 2025-12-27
 🛡️ Sicherheit & Voice-Feinschliff
 
 • **Schutz des Squad-Limits:** User erhalten keine `manage_channels` Rechte mehr in Squad-Channels. Dies verhindert das manuelle Umgehen der 2er/3er Begrenzung.
-• **Kanal-Status:** Ersteller können nun den Sprachkanal-Status setzen (z. B. "PvP", "Looten"), um ihre Aktivität anzuzeigen (`set_voice_channel_status`).
 • **Moderation:** Squad-Besitzer behalten das Recht, andere User zu verschieben oder zu kicken (`move_members`).
 • **Auto-Voice Open:** Einführung eines "Open Join"-Channels für Squads ohne Teilnehmerbegrenzung.
 

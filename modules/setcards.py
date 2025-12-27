@@ -45,7 +45,10 @@ def _ensure_db_sync() -> None:
                 twitch_last_live_message_id INTEGER,
                 twitch_last_check_ts REAL DEFAULT 0.0,
                 twitch_last_seen_live_ts REAL DEFAULT 0.0,
-                twitch_announced_this_stream INTEGER DEFAULT 0
+                twitch_announced_this_stream INTEGER DEFAULT 0,
+                role_admin_id INTEGER,
+                role_mod_id INTEGER,
+                role_setcard_id INTEGER
             );
         """)
         conn.execute("""
