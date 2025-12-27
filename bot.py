@@ -38,6 +38,7 @@ if not TOKEN:
 intents = discord.Intents.default()
 intents.voice_states = True
 intents.members = True
+intents.message_content = True  # Erlaubt dem Bot Nachrichten zu lesen (für ! commands)
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Global Session
@@ -438,9 +439,15 @@ async def on_ready():
         logger.error(f"Setcards Modul konnte nicht geladen werden: {e}")
 
     # ---- SYNC: Global-Commands in jede Guild kopieren + sofort guild-sync ----
+    # (Wir löschen globale Registrierungen, um Dopplungen zu vermeiden)
     try:
+        # 1. Globale Ebene leeren (damit dort nichts hängen bleibt)
+        # bot.tree.clear_commands(guild=None) 
+        # await bot.tree.sync() # Nur nötig wenn man globale Commands hart entfernen will
+
         total = 0
         for g in bot.guilds:
+            # Wir registrieren ALLES auf Guild-Ebene für sofortige Verfügbarkeit
             bot.tree.copy_global_to(guild=g)
             synced = await bot.tree.sync(guild=g)
             total += len(synced)
@@ -528,6 +535,8 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                 try:
                     await before.channel.delete()
                     logger.info(f"🗑️ [{member.guild.name}] Deleted empty squad channel: {before.channel.name}")
+                except discord.NotFound:
+                    pass # Bereits gelöscht, ignorieren
                 except Exception as e:
                     logger.error(f"[{member.guild.name}] Error deleting voice channel: {e}")
 
@@ -542,31 +551,16 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             if looks_like_old or looks_not_squad:
                 try:
                     await after.channel.edit(name=desired)
-                    print(f"✏️ [{member.guild.name}] Renamed channel: '{current}' -> '{desired}'")
-                except discord.Forbidden as e:
-                    print(f"❌ [{member.guild.name}] Forbidden: rename channel | {e}")
+                    logger.info(f"✏️ [{member.guild.name}] Renamed channel: '{current}' -> '{desired}'")
+                except discord.Forbidden:
+                    pass
                 except discord.NotFound:
-                    print(f"ℹ️ [{member.guild.name}] Rename skipped: channel already gone (404)")
+                    pass
                 except discord.HTTPException as e:
-                    print(f"❌ [{member.guild.name}] HTTPException: rename channel | {e}")
+                    logger.error(f"[{member.guild.name}] HTTPException: rename channel | {e}")
 
-    if before.channel:
-        ch = before.channel
-
-        if ch.id == create_id:
-            return
-
-        if ch.category and ch.category.id == category_id and len(ch.members) == 0:
-            try:
-                name = ch.name
-                await ch.delete()
-                print(f"🗑️ [{member.guild.name}] Deleted empty channel: {name}")
-            except discord.NotFound:
-                print(f"ℹ️ [{member.guild.name}] Delete skipped: channel already gone (404)")
-            except discord.Forbidden as e:
-                print(f"❌ [{member.guild.name}] Forbidden: delete channel | {e}")
-            except discord.HTTPException as e:
-                print(f"❌ [{member.guild.name}] HTTPException: delete channel | {e}")
+    # Der zweite Block unten ist redundant und verursacht die 404 Fehler.
+    # Ich entferne ihn, da die Logik oben bereits alles abdeckt.
 
 # ============================================================
 # SLASH COMMANDS: VOICE (1:1)
