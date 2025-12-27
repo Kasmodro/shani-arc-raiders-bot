@@ -638,6 +638,61 @@ async def autovoice_disable(interaction: discord.Interaction):
     await interaction.response.send_message("🛑 Auto-Voice wurde deaktiviert.", ephemeral=True)
 
 # ============================================================
+# GLOBAL STATUS COMMAND
+# ============================================================
+@bot.tree.command(name="shani_status", description="Zeigt die gesamte Konfiguration des Bots für diesen Server.")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def shani_status(interaction: discord.Interaction):
+    cfg = await get_guild_cfg(interaction.guild_id)
+    if not cfg:
+        await interaction.response.send_message("ℹ️ Noch keine Konfiguration für diesen Server vorhanden.", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title=f"⚙️ Konfiguration für {interaction.guild.name}",
+        color=discord.Color.blue(),
+        timestamp=datetime.now(timezone.utc)
+    )
+
+    # 🛠️ Setcards
+    sc_channel = interaction.guild.get_channel(int(cfg.get("setcard_channel_id", 0))) if cfg.get("setcard_channel_id") else None
+    embed.add_field(
+        name="🛠️ Setcards",
+        value=f"Kanal: {sc_channel.mention if sc_channel else '❌ Nicht gesetzt'}",
+        inline=False
+    )
+
+    # 🔊 Auto-Voice
+    ch2 = interaction.guild.get_channel(int(cfg.get("create_channel_id", 0))) if cfg.get("create_channel_id") else None
+    ch3 = interaction.guild.get_channel(int(cfg.get("create_channel_3_id", 0))) if cfg.get("create_channel_3_id") else None
+    cat = interaction.guild.get_channel(int(cfg.get("voice_category_id", 0))) if cfg.get("voice_category_id") else None
+    
+    voice_val = "❌ Nicht eingerichtet"
+    if ch2 or ch3 or cat:
+        voice_val = (
+            f"• 2er Join: {ch2.mention if ch2 else '❌'}\n"
+            f"• 3er Join: {ch3.mention if ch3 else '❌'}\n"
+            f"• Kategorie: {cat.name if cat else '❌'}"
+        )
+    embed.add_field(name="🔊 Auto-Voice", value=voice_val, inline=False)
+
+    # 🟣 Twitch
+    if cfg.get("twitch_enabled"):
+        tw_ch = interaction.guild.get_channel(int(cfg.get("twitch_announce_channel_id", 0))) if cfg.get("twitch_announce_channel_id") else None
+        role = interaction.guild.get_role(int(cfg.get("twitch_ping_role_id", 0))) if cfg.get("twitch_ping_role_id") else None
+        tw_val = (
+            f"• Kanal: **{cfg.get('twitch_channel')}**\n"
+            f"• Announce: {tw_ch.mention if tw_ch else '❌'}\n"
+            f"• Ping: {role.mention if role else '—'}"
+        )
+    else:
+        tw_val = "❌ Deaktiviert"
+    embed.add_field(name="🟣 Twitch Live-Alerts", value=tw_val, inline=False)
+
+    embed.set_footer(text="Shani Bot Status")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# ============================================================
 # SLASH COMMANDS: TWITCH (NEU: setup_twitchlive2 ohne Cooldown)
 # ============================================================
 @bot.tree.command(name="setup_twitchlive2", description="Twitch Live Alerts ohne API: genau 1 Live-Ping pro Stream.")
