@@ -114,20 +114,22 @@ async def load_modules():
 # ============================================================
 # VOICE CONFIG
 # ============================================================
-async def set_guild_voice_cfg(guild_id: int, create_channel_id: int, create_channel_3_id: int, voice_category_id: int) -> None:
+async def set_guild_voice_cfg(guild_id: int, create_channel_id: int, create_channel_3_id: int, create_channel_open_id: int, voice_category_id: int) -> None:
     await update_guild_cfg(
         guild_id,
         create_channel_id=int(create_channel_id),
         create_channel_3_id=int(create_channel_3_id),
+        create_channel_open_id=int(create_channel_open_id),
         voice_category_id=int(voice_category_id)
     )
 
 async def clear_guild_voice_cfg(guild_id: int) -> None:
-    await clear_guild_cfg_fields(guild_id, ["create_channel_id", "create_channel_3_id", "voice_category_id"])
+    await clear_guild_cfg_fields(guild_id, ["create_channel_id", "create_channel_3_id", "create_channel_open_id", "voice_category_id"])
 
 def squad_channel_name(member: discord.Member, limit: int) -> str:
-    suffix = f" ({limit}er)" if limit > 0 else ""
-    return f"Squad {member.display_name}{suffix}"
+    if limit == 0:
+        return f"Squad {member.display_name} (Open)"
+    return f"Squad {member.display_name} ({limit}er)"
 
 # ============================================================
 # TWITCH CONFIG (separat, überschreibt VOICE NICHT)
@@ -506,16 +508,19 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
 
     create_id_2 = cfg.get("create_channel_id")
     create_id_3 = cfg.get("create_channel_3_id")
+    create_id_open = cfg.get("create_channel_open_id")
 
     # --- Erstellen ---
-    target_limit = 0
+    target_limit = -1
     if after.channel:
         if create_id_2 and after.channel.id == int(create_id_2):
             target_limit = 2
         elif create_id_3 and after.channel.id == int(create_id_3):
             target_limit = 3
+        elif create_id_open and after.channel.id == int(create_id_open):
+            target_limit = 0
 
-    if target_limit > 0:
+    if target_limit != -1:
         category = member.guild.get_channel(int(category_id))
         if not isinstance(category, discord.CategoryChannel):
             logger.error(f"[{member.guild.name}] Ziel-Kategorie fehlt/ungültig (ID={category_id}).")
@@ -527,7 +532,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                 category=category,
                 user_limit=target_limit
             )
-            logger.info(f"➕ [{member.guild.name}] Created {target_limit}er: {channel.name} (owner={member.display_name})")
+            logger.info(f"➕ [{member.guild.name}] Created {target_limit if target_limit > 0 else 'Open'}: {channel.name} (owner={member.display_name})")
         except Exception as e:
             logger.error(f"[{member.guild.name}] Error creating voice channel: {e}")
             return
@@ -549,8 +554,9 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
         # Check if it was a join channel
         is_join_2 = create_id_2 and before.channel.id == int(create_id_2)
         is_join_3 = create_id_3 and before.channel.id == int(create_id_3)
+        is_join_open = create_id_open and before.channel.id == int(create_id_open)
         
-        if not is_join_2 and not is_join_3:
+        if not is_join_2 and not is_join_3 and not is_join_open:
             if before.channel.category_id == int(category_id):
                 if before.channel.name.startswith("Squad ") and len(before.channel.members) == 0:
                     try:
@@ -564,8 +570,9 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
     if after.channel and after.channel.category and after.channel.category.id == int(category_id):
         is_join_2 = create_id_2 and after.channel.id == int(create_id_2)
         is_join_3 = create_id_3 and after.channel.id == int(create_id_3)
+        is_join_open = create_id_open and after.channel.id == int(create_id_open)
         
-        if not is_join_2 and not is_join_3:
+        if not is_join_2 and not is_join_3 and not is_join_open:
             limit = after.channel.user_limit
             desired = squad_channel_name(member, limit)
             current = after.channel.name
@@ -592,21 +599,24 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
 @app_commands.describe(
     create_channel_2="Voice-Channel für 2er Squads",
     create_channel_3="Voice-Channel für 3er Squads",
+    create_channel_open="Voice-Channel für Open Squads (kein Limit)",
     target_category="Kategorie, in der die erstellten Squad-Channels landen sollen"
 )
 async def setup_autovoice(
     interaction: discord.Interaction,
     create_channel_2: discord.VoiceChannel,
     create_channel_3: discord.VoiceChannel,
+    create_channel_open: discord.VoiceChannel,
     target_category: discord.CategoryChannel
 ):
-    await set_guild_voice_cfg(interaction.guild_id, create_channel_2.id, create_channel_3.id, target_category.id)
+    await set_guild_voice_cfg(interaction.guild_id, create_channel_2.id, create_channel_3.id, create_channel_open.id, target_category.id)
     await interaction.response.send_message(
         f"✅ Auto-Voice aktiviert.\n"
         f"👥 2er Join-Channel: **{create_channel_2.name}**\n"
         f"👥 3er Join-Channel: **{create_channel_3.name}**\n"
+        f"🔓 Open Join-Channel: **{create_channel_open.name}**\n"
         f"📁 Ziel-Kategorie: **{target_category.name}**\n\n"
-        f"Ergebnis: **Squad <Username> (Xer)**",
+        f"Ergebnis: **Squad <Username> (...)**",
         ephemeral=True
     )
 
@@ -620,14 +630,15 @@ async def autovoice_status(interaction: discord.Interaction):
 
     ch2 = interaction.guild.get_channel(int(cfg.get("create_channel_id", 0))) if cfg.get("create_channel_id") else None
     ch3 = interaction.guild.get_channel(int(cfg.get("create_channel_3_id", 0))) if cfg.get("create_channel_3_id") else None
+    chO = interaction.guild.get_channel(int(cfg.get("create_channel_open_id", 0))) if cfg.get("create_channel_open_id") else None
     cat = interaction.guild.get_channel(int(cfg.get("voice_category_id", 0))) if cfg.get("voice_category_id") else None
 
     await interaction.response.send_message(
         "✅ Auto-Voice Status:\n"
-        f"👥 2er Join-Channel: **{ch2.name if ch2 else 'Nicht konfiguriert'}**\n"
-        f"👥 3er Join-Channel: **{ch3.name if ch3 else 'Nicht konfiguriert'}**\n"
-        f"📁 Ziel-Kategorie: **{cat.name if cat else 'FEHLT (gelöscht?)'}**\n"
-        f"🏷️ Naming: **Squad <Username> (Xer)**",
+        f"👥 2er Join-Channel: **{ch2.name if ch2 else '❌'}**\n"
+        f"👥 3er Join-Channel: **{ch3.name if ch3 else '❌'}**\n"
+        f"🔓 Open Join-Channel: **{chO.name if chO else '❌'}**\n"
+        f"📁 Ziel-Kategorie: **{cat.name if cat else 'FEHLT'}**",
         ephemeral=True
     )
 
@@ -665,13 +676,15 @@ async def shani_status(interaction: discord.Interaction):
     # 🔊 Auto-Voice
     ch2 = interaction.guild.get_channel(int(cfg.get("create_channel_id", 0))) if cfg.get("create_channel_id") else None
     ch3 = interaction.guild.get_channel(int(cfg.get("create_channel_3_id", 0))) if cfg.get("create_channel_3_id") else None
+    chO = interaction.guild.get_channel(int(cfg.get("create_channel_open_id", 0))) if cfg.get("create_channel_open_id") else None
     cat = interaction.guild.get_channel(int(cfg.get("voice_category_id", 0))) if cfg.get("voice_category_id") else None
     
     voice_val = "❌ Nicht eingerichtet"
-    if ch2 or ch3 or cat:
+    if ch2 or ch3 or chO or cat:
         voice_val = (
             f"• 2er Join: {ch2.mention if ch2 else '❌'}\n"
             f"• 3er Join: {ch3.mention if ch3 else '❌'}\n"
+            f"• Open Join: {chO.mention if chO else '❌'}\n"
             f"• Kategorie: {cat.name if cat else '❌'}"
         )
     embed.add_field(name="🔊 Auto-Voice", value=voice_val, inline=False)

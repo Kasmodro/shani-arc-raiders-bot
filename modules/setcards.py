@@ -33,6 +33,7 @@ def _ensure_db_sync() -> None:
                 setcard_channel_id INTEGER,
                 create_channel_id INTEGER,
                 create_channel_3_id INTEGER,
+                create_channel_open_id INTEGER,
                 voice_category_id INTEGER,
                 twitch_enabled INTEGER DEFAULT 0,
                 twitch_channel TEXT,
