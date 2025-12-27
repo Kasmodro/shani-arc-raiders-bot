@@ -131,6 +131,29 @@ def squad_channel_name(member: discord.Member, limit: int) -> str:
         return f"Squad {member.display_name} (Open)"
     return f"Squad {member.display_name} ({limit}er)"
 
+async def cleanup_empty_squads(guild: discord.Guild, category_id: int):
+    category = guild.get_channel(category_id)
+    if not isinstance(category, discord.CategoryChannel):
+        return
+    
+    for channel in category.voice_channels:
+        if channel.name.startswith("Squad ") and len(channel.members) == 0:
+            # Check if it's one of the join channels (don't delete those!)
+            cfg = await get_guild_cfg(guild.id)
+            join_ids = [
+                int(cfg.get("create_channel_id") or 0),
+                int(cfg.get("create_channel_3_id") or 0),
+                int(cfg.get("create_channel_open_id") or 0)
+            ]
+            if channel.id not in join_ids:
+                try:
+                    await channel.delete()
+                    logger.info(f"🗑️ [{guild.name}] Cleanup: Deleted empty squad channel {channel.name}")
+                except discord.NotFound:
+                    pass
+                except Exception as e:
+                    logger.error(f"[{guild.name}] Cleanup failed for {channel.name}: {e}")
+
 # ============================================================
 # TWITCH CONFIG (separat, überschreibt VOICE NICHT)
 # ============================================================
@@ -547,26 +570,15 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                 speak=True
             )
             await member.move_to(channel)
+            # Nach dem Verschieben kurz warten und aufräumen
+            await asyncio.sleep(1.5)
+            await cleanup_empty_squads(member.guild, int(category_id))
         except Exception as e:
             logger.error(f"[{member.guild.name}] Error moving member to new channel: {e}")
 
-    # --- Löschen ---
-    if before.channel:
-        # Check if it was a join channel
-        is_join_2 = create_id_2 and before.channel.id == int(create_id_2)
-        is_join_3 = create_id_3 and before.channel.id == int(create_id_3)
-        is_join_open = create_id_open and before.channel.id == int(create_id_open)
-        
-        if not is_join_2 and not is_join_3 and not is_join_open:
-            if before.channel.category_id == int(category_id):
-                if before.channel.name.startswith("Squad ") and len(before.channel.members) == 0:
-                    try:
-                        await before.channel.delete()
-                        logger.info(f"🗑️ [{member.guild.name}] Deleted empty squad channel: {before.channel.name}")
-                    except discord.NotFound:
-                        pass
-                    except Exception as e:
-                        logger.error(f"[{member.guild.name}] Error deleting voice channel: {e}")
+    # --- Globaler Cleanup bei jedem State-Wechsel ---
+    if before.channel or after.channel:
+        await cleanup_empty_squads(member.guild, int(category_id))
 
     if after.channel and after.channel.category and after.channel.category.id == int(category_id):
         is_join_2 = create_id_2 and after.channel.id == int(create_id_2)
