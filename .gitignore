@@ -1,0 +1,10 @@
+.env
+data/
+*.log
+__pycache__/
+modules/__pycache__/
+.idea/
+venv/
+*.backup
+*.backup_migration
+guild_config.json

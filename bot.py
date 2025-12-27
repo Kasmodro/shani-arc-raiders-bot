@@ -1,17 +1,32 @@
 import os
-import json
 import re
 import time
 import html
-import discord
+import asyncio
+import logging
+import sqlite3
+import traceback
 import aiohttp
+import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 
+# --- LOGGING ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler("bot.log", encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("shani-bot")
+
 BASE_DIR = os.path.dirname(__file__)
-CONFIG_PATH = os.path.join(BASE_DIR, "guild_config.json")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+DB_PATH = os.path.join(DATA_DIR, "setcards.db")
 
 # --- ENV ---
 load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"))
@@ -25,48 +40,88 @@ intents.voice_states = True
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ============================================================
-# CONFIG HELPERS (wichtig: NICHT mehr überschreiben/clear alles)
-# ============================================================
-def load_config() -> dict:
-    if not os.path.exists(CONFIG_PATH):
-        return {}
+# Global Session
+bot.http_session = None
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    logger.error(f"APP_COMMAND_ERROR: {error}", exc_info=error)
     try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"⚠️ Config konnte nicht geladen werden: {e}")
-        return {}
-
-def save_config(cfg: dict) -> None:
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
-
-GUILD_CONFIG = load_config()
-
-def ensure_guild_cfg(guild_id: int) -> dict:
-    gid = str(guild_id)
-    if gid not in GUILD_CONFIG or not isinstance(GUILD_CONFIG.get(gid), dict):
-        GUILD_CONFIG[gid] = {}
-    return GUILD_CONFIG[gid]
-
-def get_guild_cfg(guild_id: int) -> dict | None:
-    return GUILD_CONFIG.get(str(guild_id))
+        if interaction.response.is_done():
+            await interaction.followup.send("❌ Fehler im Command (siehe Server-Log).", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Fehler im Command (siehe Server-Log).", ephemeral=True)
+    except Exception:
+        pass
 
 # ============================================================
-# VOICE CONFIG (EXAKT wie dein Script)
+# DATABASE HELPERS
 # ============================================================
-def set_guild_voice_cfg(guild_id: int, create_channel_id: int, voice_category_id: int) -> None:
-    cfg = ensure_guild_cfg(guild_id)
-    cfg["create_channel_id"] = int(create_channel_id)
-    cfg["voice_category_id"] = int(voice_category_id)
-    save_config(GUILD_CONFIG)
+async def _db_run(func, *args):
+    return await asyncio.to_thread(func, *args)
 
-def clear_guild_voice_cfg(guild_id: int) -> None:
-    cfg = ensure_guild_cfg(guild_id)
-    cfg.pop("create_channel_id", None)
-    cfg.pop("voice_category_id", None)
-    save_config(GUILD_CONFIG)
+def _db_connect():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+async def get_guild_cfg(guild_id: int) -> dict:
+    def _get():
+        with _db_connect() as conn:
+            row = conn.execute("SELECT * FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+            return dict(row) if row else {}
+    return await _db_run(_get)
+
+async def update_guild_cfg(guild_id: int, **kwargs) -> None:
+    def _update():
+        with _db_connect() as conn:
+            # Check if exists
+            exists = conn.execute("SELECT 1 FROM guild_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+            if not exists:
+                conn.execute("INSERT INTO guild_settings (guild_id) VALUES (?)", (guild_id,))
+            
+            if not kwargs:
+                return
+
+            keys = list(kwargs.keys())
+            values = list(kwargs.values())
+            set_clause = ", ".join([f"{k} = ?" for k in keys])
+            conn.execute(f"UPDATE guild_settings SET {set_clause} WHERE guild_id = ?", values + [guild_id])
+            conn.commit()
+    await _db_run(_update)
+
+async def clear_guild_cfg_fields(guild_id: int, fields: list) -> None:
+    def _clear():
+        with _db_connect() as conn:
+            set_clause = ", ".join([f"{f} = NULL" for f in fields])
+            conn.execute(f"UPDATE guild_settings SET {set_clause} WHERE guild_id = ?", (guild_id,))
+            conn.commit()
+    await _db_run(_clear)
+
+
+
+
+
+
+# ============================================================
+# MODULE LOADING
+# ============================================================
+async def load_modules():
+    # Setcard-Modul
+    await bot.load_extension("modules.setcards")
+
+# ============================================================
+# VOICE CONFIG
+# ============================================================
+async def set_guild_voice_cfg(guild_id: int, create_channel_id: int, voice_category_id: int) -> None:
+    await update_guild_cfg(
+        guild_id,
+        create_channel_id=int(create_channel_id),
+        voice_category_id=int(voice_category_id)
+    )
+
+async def clear_guild_voice_cfg(guild_id: int) -> None:
+    await clear_guild_cfg_fields(guild_id, ["create_channel_id", "voice_category_id"])
 
 def squad_channel_name(member: discord.Member) -> str:
     return f"Squad {member.display_name}"
@@ -97,7 +152,7 @@ def extract_twitch_channel(value: str) -> str:
     v = re.sub(r"[^a-zA-Z0-9_]", "", v)
     return v.lower()
 
-def set_twitch_cfg(
+async def set_twitch_cfg(
     guild_id: int,
     twitch_channel_or_url: str,
     announce_channel_id: int,
@@ -106,44 +161,32 @@ def set_twitch_cfg(
     poll_seconds: int,
     offline_grace_seconds: int = TWITCH_OFFLINE_GRACE_SECONDS_DEFAULT
 ) -> None:
-    cfg = ensure_guild_cfg(guild_id)
-    cfg["twitch_enabled"] = True
-    cfg["twitch_channel"] = extract_twitch_channel(twitch_channel_or_url)
-    cfg["twitch_announce_channel_id"] = int(announce_channel_id)
+    await update_guild_cfg(
+        guild_id,
+        twitch_enabled=1,
+        twitch_channel=extract_twitch_channel(twitch_channel_or_url),
+        twitch_announce_channel_id=int(announce_channel_id),
+        twitch_ping_role_id=int(ping_role_id) if ping_role_id else None,
+        twitch_stable_checks=max(1, int(stable_checks)),
+        twitch_poll_seconds=max(30, int(poll_seconds)),
+        twitch_offline_grace_seconds=max(0, int(offline_grace_seconds)),
+        twitch_last_live_message_id=None,
+        twitch_last_check_ts=0.0,
+        twitch_last_seen_live_ts=0.0,
+        twitch_announced_this_stream=0
+    )
 
-    if ping_role_id:
-        cfg["twitch_ping_role_id"] = int(ping_role_id)
-    else:
-        cfg.pop("twitch_ping_role_id", None)
-
-    cfg["twitch_stable_checks"] = max(1, int(stable_checks))
-    cfg["twitch_poll_seconds"] = max(30, int(poll_seconds))  # Schutz
-    cfg["twitch_offline_grace_seconds"] = max(0, int(offline_grace_seconds))
-
-    # persistente States, damit Restart sauber bleibt
-    cfg.setdefault("twitch_last_live_message_id", None)
-    cfg.setdefault("twitch_last_check_ts", 0.0)
-    cfg.setdefault("twitch_last_seen_live_ts", 0.0)
-    cfg.setdefault("twitch_announced_this_stream", False)
-
-    save_config(GUILD_CONFIG)
-
-def clear_twitch_cfg(guild_id: int) -> None:
-    cfg = ensure_guild_cfg(guild_id)
-    # NUR Twitch-Keys löschen, NICHT Voice!
-    for k in [
+async def clear_twitch_cfg(guild_id: int) -> None:
+    await clear_guild_cfg_fields(guild_id, [
         "twitch_enabled", "twitch_channel", "twitch_announce_channel_id", "twitch_ping_role_id",
         "twitch_stable_checks", "twitch_poll_seconds", "twitch_offline_grace_seconds",
         "twitch_last_live_message_id", "twitch_last_check_ts", "twitch_last_seen_live_ts",
         "twitch_announced_this_stream"
-    ]:
-        cfg.pop(k, None)
-    save_config(GUILD_CONFIG)
+    ])
+    await update_guild_cfg(guild_id, twitch_enabled=0)
 
-def set_twitch_last_message_id(guild_id: int, message_id: int | None) -> None:
-    cfg = ensure_guild_cfg(guild_id)
-    cfg["twitch_last_live_message_id"] = int(message_id) if message_id else None
-    save_config(GUILD_CONFIG)
+async def set_twitch_last_message_id(guild_id: int, message_id: int | None) -> None:
+    await update_guild_cfg(guild_id, twitch_last_live_message_id=int(message_id) if message_id else None)
 
 # --- Twitch Runtime State ---
 twitch_live_state: dict[int, bool] = {}
@@ -154,11 +197,21 @@ twitch_meta_cache: dict[str, dict] = {}
 # ============================================================
 # TWITCH: HTML Fetch + Parse (no API)
 # ============================================================
-async def fetch_twitch_page(session: aiohttp.ClientSession, twitch_channel: str) -> tuple[int, str]:
+async def fetch_twitch_page(session: aiohttp.ClientSession, twitch_channel: str):
     url = f"https://www.twitch.tv/{twitch_channel}"
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; ShaniBot/1.0)"}
-    async with session.get(url, headers=headers, timeout=20) as resp:
-        return resp.status, await resp.text()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": "https://www.google.com/"
+    }
+    try:
+        async with session.get(url, headers=headers, timeout=15) as resp:
+            if resp.status == 200:
+                return await resp.text()
+            return None
+    except Exception as e:
+        logger.error(f"fetch_twitch_page error for {twitch_channel}: {e}")
+        return None
 
 def parse_twitch_meta(html_text: str) -> dict:
     """
@@ -285,97 +338,119 @@ async def edit_to_offline(guild: discord.Guild, cfg: dict, meta: dict) -> None:
 # ============================================================
 @tasks.loop(seconds=30)
 async def twitch_loop():
-    async with aiohttp.ClientSession() as session:
-        for guild in bot.guilds:
-            cfg = get_guild_cfg(guild.id) or {}
-            if not cfg.get("twitch_enabled"):
+    if not bot.http_session:
+        bot.http_session = aiohttp.ClientSession()
+
+    for guild in bot.guilds:
+        cfg = await get_guild_cfg(guild.id)
+        if not cfg.get("twitch_enabled"):
+            continue
+        if "twitch_channel" not in cfg or "twitch_announce_channel_id" not in cfg:
+            continue
+
+        poll_seconds = int(cfg.get("twitch_poll_seconds", TWITCH_DEFAULT_POLL_SECONDS))
+        last_check = float(cfg.get("twitch_last_check_ts", 0.0))
+        now = time.time()
+        if (now - last_check) < poll_seconds:
+            continue
+        
+        await update_guild_cfg(guild.id, twitch_last_check_ts=now)
+
+        stable = int(cfg.get("twitch_stable_checks", 2))
+        offline_grace = int(cfg.get("twitch_offline_grace_seconds", TWITCH_OFFLINE_GRACE_SECONDS_DEFAULT))
+
+        twitch_channel = cfg["twitch_channel"]
+
+        try:
+            html_text = await fetch_twitch_page(bot.http_session, twitch_channel)
+            if html_text is None:
                 continue
-            if "twitch_channel" not in cfg or "twitch_announce_channel_id" not in cfg:
-                continue
+            meta = parse_twitch_meta(html_text)
+        except Exception as e:
+            logger.error(f"[{guild.name}] Twitch fetch error: {e}")
+            continue
 
-            poll_seconds = int(cfg.get("twitch_poll_seconds", TWITCH_DEFAULT_POLL_SECONDS))
-            last_check = float(cfg.get("twitch_last_check_ts", 0.0))
-            now = time.time()
-            if (now - last_check) < poll_seconds:
-                continue
-            cfg["twitch_last_check_ts"] = now
-            save_config(GUILD_CONFIG)
+        live_now = bool(meta.get("live", False))
+        prev_live = twitch_live_state.get(guild.id, False)
 
-            stable = int(cfg.get("twitch_stable_checks", 2))
-            offline_grace = int(cfg.get("twitch_offline_grace_seconds", TWITCH_OFFLINE_GRACE_SECONDS_DEFAULT))
+        # hits zählen (Stabil)
+        if live_now:
+            twitch_live_hits[guild.id] = twitch_live_hits.get(guild.id, 0) + 1
+            twitch_off_hits[guild.id] = 0
+        else:
+            twitch_off_hits[guild.id] = twitch_off_hits.get(guild.id, 0) + 1
+            twitch_live_hits[guild.id] = 0
 
-            twitch_channel = cfg["twitch_channel"]
+        # last seen live timestamp pflegen (für "echtes Ende")
+        if live_now:
+            await update_guild_cfg(guild.id, twitch_last_seen_live_ts=now)
 
-            try:
-                meta = await get_twitch_meta(session, twitch_channel)
-            except Exception as e:
-                print(f"⚠️ [{guild.name}] Twitch fetch error: {e}")
-                continue
+        announced = bool(cfg.get("twitch_announced_this_stream", False))
+        last_seen_live_ts = float(cfg.get("twitch_last_seen_live_ts", 0.0))
 
-            live_now = bool(meta.get("is_live", False))
-            prev_live = twitch_live_state.get(guild.id, False)
+        # ====================================================
+        # OFFLINE -> LIVE (NUR EINMAL PRO STREAM POSTEN)
+        # ====================================================
+        if (not announced) and (not prev_live) and live_now and twitch_live_hits[guild.id] >= stable:
+            twitch_live_state[guild.id] = True
+            await post_live(guild, cfg, meta)
+            await update_guild_cfg(guild.id, twitch_announced_this_stream=1)
+            continue
 
-            # hits zählen (Stabil)
-            if live_now:
-                twitch_live_hits[guild.id] = twitch_live_hits.get(guild.id, 0) + 1
-                twitch_off_hits[guild.id] = 0
+        # wenn schon announced, setzen wir live_state einfach korrekt,
+        # aber posten NICHT nochmal
+        if announced and live_now:
+            twitch_live_state[guild.id] = True
+
+        # ====================================================
+        # LIVE -> OFFLINE (Stream gilt nur als "beendet", wenn
+        # offline stabil UND seit "last_seen_live" genug Zeit rum ist)
+        # ====================================================
+        # Damit verhindern wir Mehrfach-LIVE bei kurzen Aussetzern.
+        if announced and prev_live and (not live_now) and twitch_off_hits[guild.id] >= stable:
+            offline_duration = now - last_seen_live_ts
+            if offline_duration >= offline_grace:
+                twitch_live_state[guild.id] = False
+                await edit_to_offline(guild, cfg, meta)
+
+                # RESET -> nächster Stream darf wieder EIN Live-Ping schicken
+                await update_guild_cfg(guild.id, twitch_announced_this_stream=0)
             else:
-                twitch_off_hits[guild.id] = twitch_off_hits.get(guild.id, 0) + 1
-                twitch_live_hits[guild.id] = 0
-
-            # last seen live timestamp pflegen (für "echtes Ende")
-            if live_now:
-                cfg["twitch_last_seen_live_ts"] = now
-                save_config(GUILD_CONFIG)
-
-            announced = bool(cfg.get("twitch_announced_this_stream", False))
-            last_seen_live_ts = float(cfg.get("twitch_last_seen_live_ts", 0.0))
-
-            # ====================================================
-            # OFFLINE -> LIVE (NUR EINMAL PRO STREAM POSTEN)
-            # ====================================================
-            if (not announced) and (not prev_live) and live_now and twitch_live_hits[guild.id] >= stable:
-                twitch_live_state[guild.id] = True
-                await post_live(guild, cfg, meta)
-                cfg["twitch_announced_this_stream"] = True
-                save_config(GUILD_CONFIG)
-                continue
-
-            # wenn schon announced, setzen wir live_state einfach korrekt,
-            # aber posten NICHT nochmal
-            if announced and live_now:
-                twitch_live_state[guild.id] = True
-
-            # ====================================================
-            # LIVE -> OFFLINE (Stream gilt nur als "beendet", wenn
-            # offline stabil UND seit "last_seen_live" genug Zeit rum ist)
-            # ====================================================
-            # Damit verhindern wir Mehrfach-LIVE bei kurzen Aussetzern.
-            if announced and prev_live and (not live_now) and twitch_off_hits[guild.id] >= stable:
-                offline_duration = now - last_seen_live_ts
-                if offline_duration >= offline_grace:
-                    twitch_live_state[guild.id] = False
-                    await edit_to_offline(guild, cfg, meta)
-
-                    # RESET -> nächster Stream darf wieder EIN Live-Ping schicken
-                    cfg["twitch_announced_this_stream"] = False
-                    save_config(GUILD_CONFIG)
-                else:
-                    # noch nicht "echt beendet" -> ignorieren
-                    pass
+                # noch nicht "echt beendet" -> ignorieren
+                pass
 
 # ============================================================
 # EVENTS
 # ============================================================
 @bot.event
 async def on_ready():
-    try:
-        synced = await bot.tree.sync()
-        print(f"✅ Slash Commands synced: {len(synced)}")
-    except Exception as e:
-        print(f"⚠️ Slash Sync failed: {e}")
+    # Session anlegen
+    if not bot.http_session:
+        bot.http_session = aiohttp.ClientSession()
 
-    print(f"🤖 Shani ist online als {bot.user}")
+    # Module laden, bevor wir Commands syncen (damit /setcard dabei ist)
+    try:
+        if not getattr(bot, "_setcards_loaded", False):
+            await load_modules()
+            bot._setcards_loaded = True
+            logger.info("Setcards Modul geladen")
+    except Exception as e:
+        logger.error(f"Setcards Modul konnte nicht geladen werden: {e}")
+
+    # ---- SYNC: Global-Commands in jede Guild kopieren + sofort guild-sync ----
+    try:
+        total = 0
+        for g in bot.guilds:
+            bot.tree.copy_global_to(guild=g)
+            synced = await bot.tree.sync(guild=g)
+            total += len(synced)
+            logger.info(f"Slash Commands synced for {g.name}: {len(synced)}")
+
+        logger.info(f"Slash Commands synced total (sum guilds): {total}")
+    except Exception as e:
+        logger.error(f"Slash Sync failed: {e}")
+
+    logger.info(f"Shani ist online als {bot.user}")
 
     for g in bot.guilds:
         twitch_live_state.setdefault(g.id, False)
@@ -384,18 +459,35 @@ async def on_ready():
 
     if not twitch_loop.is_running():
         twitch_loop.start()
-        print("🟣 Twitch loop running (tick=30s, per-guild poll from config)")
+        logger.info("Twitch loop running (tick=30s, per-guild poll from config)")
+
+@bot.event
+async def on_member_update(before: discord.Member, after: discord.Member):
+    if before.display_name == after.display_name:
+        return
+    
+    # Check if user owns a squad channel
+    if after.voice and after.voice.channel:
+        ch = after.voice.channel
+        # Simple heuristic: starts with "Squad " and member has manage_channels permissions
+        if ch.name.startswith("Squad ") and ch.permissions_for(after).manage_channels:
+            if ch.name != squad_channel_name(after):
+                try:
+                    await ch.edit(name=squad_channel_name(after))
+                    logger.info(f"Renamed channel to {ch.name} because of display name change of {after}")
+                except:
+                    pass
 
 # ============================================================
-# VOICE EVENT (1:1 aus deinem Script)
+# VOICE EVENT
 # ============================================================
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    cfg = get_guild_cfg(member.guild.id)
+    cfg = await get_guild_cfg(member.guild.id)
     if not cfg:
         return
 
-    if "create_channel_id" not in cfg or "voice_category_id" not in cfg:
+    if not cfg.get("create_channel_id") or not cfg.get("voice_category_id"):
         return
 
     create_id = int(cfg["create_channel_id"])
@@ -404,7 +496,7 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
     if after.channel and after.channel.id == create_id:
         category = member.guild.get_channel(category_id)
         if not isinstance(category, discord.CategoryChannel):
-            print(f"❌ [{member.guild.name}] Ziel-Kategorie fehlt/ungültig (ID={category_id}).")
+            logger.error(f"[{member.guild.name}] Ziel-Kategorie fehlt/ungültig (ID={category_id}).")
             return
 
         try:
@@ -412,12 +504,9 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                 name=squad_channel_name(member),
                 category=category
             )
-            print(f"➕ [{member.guild.name}] Created: {channel.name} (owner={member.display_name})")
-        except discord.Forbidden as e:
-            print(f"❌ [{member.guild.name}] Forbidden: create_voice_channel | {e}")
-            return
-        except discord.HTTPException as e:
-            print(f"❌ [{member.guild.name}] HTTPException: create_voice_channel | {e}")
+            logger.info(f"➕ [{member.guild.name}] Created: {channel.name} (owner={member.display_name})")
+        except Exception as e:
+            logger.error(f"[{member.guild.name}] Error creating voice channel: {e}")
             return
 
         try:
@@ -428,19 +517,19 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                 connect=True,
                 speak=True
             )
-            print(f"✅ [{member.guild.name}] Permissions set for owner={member.display_name} on {channel.name}")
-        except discord.Forbidden as e:
-            print(f"❌ [{member.guild.name}] Forbidden: set_permissions | {e}")
-        except discord.HTTPException as e:
-            print(f"❌ [{member.guild.name}] HTTPException: set_permissions | {e}")
-
-        try:
             await member.move_to(channel)
-            print(f"➡️ [{member.guild.name}] Moved {member.display_name} -> {channel.name}")
-        except discord.Forbidden as e:
-            print(f"❌ [{member.guild.name}] Forbidden: move_to | {e}")
-        except discord.HTTPException as e:
-            print(f"❌ [{member.guild.name}] HTTPException: move_to | {e}")
+        except Exception as e:
+            logger.error(f"[{member.guild.name}] Error moving member to new channel: {e}")
+
+    # --- Löschen ---
+    if before.channel and before.channel.id != create_id:
+        if before.channel.category_id == category_id:
+            if before.channel.name.startswith("Squad ") and len(before.channel.members) == 0:
+                try:
+                    await before.channel.delete()
+                    logger.info(f"🗑️ [{member.guild.name}] Deleted empty squad channel: {before.channel.name}")
+                except Exception as e:
+                    logger.error(f"[{member.guild.name}] Error deleting voice channel: {e}")
 
     if after.channel and after.channel.category and after.channel.category.id == category_id:
         if after.channel.id != create_id:
@@ -493,7 +582,7 @@ async def setup_autovoice(
     create_channel: discord.VoiceChannel,
     target_category: discord.CategoryChannel
 ):
-    set_guild_voice_cfg(interaction.guild_id, create_channel.id, target_category.id)
+    await set_guild_voice_cfg(interaction.guild_id, create_channel.id, target_category.id)
     await interaction.response.send_message(
         f"✅ Auto-Voice aktiviert.\n"
         f"➕ Join-Channel: **{create_channel.name}**\n"
@@ -505,8 +594,8 @@ async def setup_autovoice(
 @bot.tree.command(name="autovoice_status", description="Zeigt die aktuelle Auto-Voice Konfiguration an.")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def autovoice_status(interaction: discord.Interaction):
-    cfg = get_guild_cfg(interaction.guild_id)
-    if not cfg or "create_channel_id" not in cfg or "voice_category_id" not in cfg:
+    cfg = await get_guild_cfg(interaction.guild_id)
+    if not cfg or "create_channel_id" not in cfg or "voice_category_id" not in cfg or not cfg["create_channel_id"]:
         await interaction.response.send_message("ℹ️ Auto-Voice ist auf diesem Server noch nicht eingerichtet.", ephemeral=True)
         return
 
@@ -524,7 +613,7 @@ async def autovoice_status(interaction: discord.Interaction):
 @bot.tree.command(name="autovoice_disable", description="Deaktiviert Auto-Voice auf diesem Server.")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def autovoice_disable(interaction: discord.Interaction):
-    clear_guild_voice_cfg(interaction.guild_id)
+    await clear_guild_voice_cfg(interaction.guild_id)
     await interaction.response.send_message("🛑 Auto-Voice wurde deaktiviert.", ephemeral=True)
 
 # ============================================================
@@ -549,7 +638,7 @@ async def setup_twitchlive2(
     poll_seconds: app_commands.Range[int, 30, 600] = 90,
     offline_grace_minutes: app_commands.Range[int, 0, 60] = 5
 ):
-    set_twitch_cfg(
+    await set_twitch_cfg(
         interaction.guild_id,
         twitch_channel_or_url,
         announce_channel.id,
@@ -578,8 +667,8 @@ async def setup_twitchlive2(
 @bot.tree.command(name="twitchlive_status", description="Zeigt Twitch-Konfiguration + aktuellen Status.")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def twitchlive_status(interaction: discord.Interaction):
-    cfg = get_guild_cfg(interaction.guild_id) or {}
-    if not cfg.get("twitch_enabled"):
+    cfg = await get_guild_cfg(interaction.guild_id)
+    if not cfg or not cfg.get("twitch_enabled"):
         await interaction.response.send_message("ℹ️ Twitch Live-Alerts sind nicht aktiviert.", ephemeral=True)
         return
 
@@ -602,18 +691,17 @@ async def twitchlive_status(interaction: discord.Interaction):
 @app_commands.checks.has_permissions(manage_guild=True)
 @app_commands.describe(poll_seconds="Neue Abfragerate in Sekunden (min 30, empfohlen 90)")
 async def twitchlive_set_poll(interaction: discord.Interaction, poll_seconds: app_commands.Range[int, 30, 600] = 90):
-    cfg = ensure_guild_cfg(interaction.guild_id)
+    cfg = await get_guild_cfg(interaction.guild_id)
     if not cfg.get("twitch_enabled"):
         await interaction.response.send_message("ℹ️ Twitch Live-Alerts sind nicht aktiviert.", ephemeral=True)
         return
-    cfg["twitch_poll_seconds"] = int(poll_seconds)
-    save_config(GUILD_CONFIG)
+    await update_guild_cfg(interaction.guild_id, twitch_poll_seconds=int(poll_seconds))
     await interaction.response.send_message(f"✅ Polling-Rate gesetzt auf **{poll_seconds}s**.", ephemeral=True)
 
 @bot.tree.command(name="twitchlive_test", description="Testet LIVE-Embed (funktioniert immer, auch wenn offline).")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def twitchlive_test(interaction: discord.Interaction):
-    cfg = get_guild_cfg(interaction.guild_id) or {}
+    cfg = await get_guild_cfg(interaction.guild_id)
     if not cfg.get("twitch_enabled"):
         await interaction.response.send_message("ℹ️ Erst /setup_twitchlive2 ausführen.", ephemeral=True)
         return
@@ -630,7 +718,7 @@ async def twitchlive_test(interaction: discord.Interaction):
         "avatar": (twitch_meta_cache.get(cfg["twitch_channel"], {}) or {}).get("avatar")
     }
     msg = await ch.send(embed=build_live_embed(cfg["twitch_channel"], meta), view=build_watch_view(cfg["twitch_channel"]))
-    set_twitch_last_message_id(guild.id, msg.id)
+    await set_twitch_last_message_id(guild.id, msg.id)
 
     # Test soll NICHT deine "1 pro Stream"-Logik kaputt machen -> Flag NICHT setzen.
     await interaction.response.send_message("🧪 Test gesendet (LIVE-Embed + Button).", ephemeral=True)
@@ -638,7 +726,7 @@ async def twitchlive_test(interaction: discord.Interaction):
 @bot.tree.command(name="twitchoffline_test", description="Testet OFFLINE-Edit (editiert den letzten LIVE-Post).")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def twitchoffline_test(interaction: discord.Interaction):
-    cfg = get_guild_cfg(interaction.guild_id) or {}
+    cfg = await get_guild_cfg(interaction.guild_id)
     if not cfg.get("twitch_enabled"):
         await interaction.response.send_message("ℹ️ Erst /setup_twitchlive2 ausführen.", ephemeral=True)
         return
@@ -651,7 +739,7 @@ async def twitchoffline_test(interaction: discord.Interaction):
 @bot.tree.command(name="twitchlive_disable", description="Deaktiviert Twitch Live-Alerts (Voice bleibt unangetastet!).")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def twitchlive_disable(interaction: discord.Interaction):
-    clear_twitch_cfg(interaction.guild_id)
+    await clear_twitch_cfg(interaction.guild_id)
     gid = int(interaction.guild_id)
     twitch_live_state[gid] = False
     twitch_live_hits[gid] = 0
@@ -679,4 +767,48 @@ async def perms_error(interaction: discord.Interaction, error: app_commands.AppC
     else:
         await interaction.response.send_message(msg, ephemeral=True)
 
-bot.run(TOKEN)
+
+@bot.listen("on_interaction")
+async def _dbg_interaction(interaction: discord.Interaction):
+    try:
+        if interaction.type != discord.InteractionType.application_command:
+            return
+
+        data = interaction.data or {}
+        root = data.get("name")
+        sub = None
+        sub2 = None
+
+        opts = data.get("options") or []
+        if opts and isinstance(opts, list) and isinstance(opts[0], dict):
+            sub = opts[0].get("name")
+            sub_opts = opts[0].get("options") or []
+            if sub_opts and isinstance(sub_opts, list) and isinstance(sub_opts[0], dict):
+                sub2 = sub_opts[0].get("name")
+
+        logger.info(
+            f"CMD: root={root} sub={sub} sub2={sub2} "
+            f"guild={interaction.guild_id} user={getattr(interaction.user,'id',None)}"
+        )
+    except Exception as e:
+        logger.error(f"INTERACTION DBG failed: {e}")
+
+
+
+
+
+# ============================================================
+# START (Extension-sicher)
+# ============================================================
+async def main():
+    async with bot:
+        await bot.start(TOKEN)
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if bot.http_session:
+            asyncio.run(bot.http_session.close())

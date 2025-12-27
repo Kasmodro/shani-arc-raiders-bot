@@ -3,6 +3,7 @@ import json
 import re
 import time
 import html
+import asyncio
 import discord
 import aiohttp
 from discord.ext import commands, tasks
@@ -24,6 +25,35 @@ intents = discord.Intents.default()
 intents.voice_states = True
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+import traceback
+import discord
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    print("🧨 APP_COMMAND_ERROR:", repr(error))
+    traceback.print_exception(type(error), error, error.__traceback__)
+
+    # versuche dem User wenigstens eine Antwort zu geben
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send("❌ Fehler im Command (siehe Server-Log).", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Fehler im Command (siehe Server-Log).", ephemeral=True)
+    except Exception:
+        pass
+
+
+
+
+
+
+# ============================================================
+# MODULE LOADING
+# ============================================================
+async def load_modules():
+    # Setcard-Modul
+    await bot.load_extension("modules.setcards")
 
 # ============================================================
 # CONFIG HELPERS (wichtig: NICHT mehr überschreiben/clear alles)
@@ -369,9 +399,34 @@ async def twitch_loop():
 # ============================================================
 @bot.event
 async def on_ready():
+    # Module laden, bevor wir Commands syncen (damit /setcard dabei ist)
     try:
-        synced = await bot.tree.sync()
-        print(f"✅ Slash Commands synced: {len(synced)}")
+        if not getattr(bot, "_setcards_loaded", False):
+            await load_modules()
+            bot._setcards_loaded = True
+            print("✅ Setcards Modul geladen")
+    except Exception as e:
+        print(f"⚠️ Setcards Modul konnte nicht geladen werden: {e}")
+
+    # ---- DEBUG: welche Commands kennt der Bot lokal? ----
+    try:
+        cmd_names = [c.name for c in bot.tree.get_commands()]
+        print(f"🧩 Local tree commands: {cmd_names}")
+    except Exception as e:
+        print(f"⚠️ Could not list local commands: {e}")
+
+    # ---- SYNC: Global-Commands in jede Guild kopieren + sofort guild-sync ----
+    try:
+        total = 0
+        for g in bot.guilds:
+            # Wichtig: kopiert deine GLOBALEN Commands in die Guild-Registry
+            bot.tree.copy_global_to(guild=g)
+
+            synced = await bot.tree.sync(guild=g)
+            total += len(synced)
+            print(f"✅ Slash Commands synced for {g.name}: {len(synced)}")
+
+        print(f"✅ Slash Commands synced total (sum guilds): {total}")
     except Exception as e:
         print(f"⚠️ Slash Sync failed: {e}")
 
@@ -679,4 +734,45 @@ async def perms_error(interaction: discord.Interaction, error: app_commands.AppC
     else:
         await interaction.response.send_message(msg, ephemeral=True)
 
-bot.run(TOKEN)
+
+import discord
+
+@bot.listen("on_interaction")
+async def _dbg_interaction(interaction: discord.Interaction):
+    try:
+        if interaction.type != discord.InteractionType.application_command:
+            return
+
+        data = interaction.data or {}
+        root = data.get("name")
+        sub = None
+        sub2 = None
+
+        opts = data.get("options") or []
+        # Discord Struktur: /setcard edit -> options[0].name == "edit"
+        if opts and isinstance(opts, list) and isinstance(opts[0], dict):
+            sub = opts[0].get("name")
+            sub_opts = opts[0].get("options") or []
+            if sub_opts and isinstance(sub_opts, list) and isinstance(sub_opts[0], dict):
+                sub2 = sub_opts[0].get("name")
+
+        print(
+            f"🧷 CMD: root={root} sub={sub} sub2={sub2} "
+            f"guild={interaction.guild_id} user={getattr(interaction.user,'id',None)}"
+        )
+    except Exception as e:
+        print(f"⚠️ INTERACTION DBG failed: {e}")
+
+
+
+
+
+# ============================================================
+# START (Extension-sicher)
+# ============================================================
+async def main():
+    async with bot:
+        await bot.start(TOKEN)
+
+if __name__ == "__main__":
+    asyncio.run(main())

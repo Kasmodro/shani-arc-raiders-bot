@@ -30,7 +30,20 @@ def _ensure_db_sync() -> None:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS guild_settings (
                 guild_id INTEGER PRIMARY KEY,
-                setcard_channel_id INTEGER
+                setcard_channel_id INTEGER,
+                create_channel_id INTEGER,
+                voice_category_id INTEGER,
+                twitch_enabled INTEGER DEFAULT 0,
+                twitch_channel TEXT,
+                twitch_announce_channel_id INTEGER,
+                twitch_ping_role_id INTEGER,
+                twitch_stable_checks INTEGER DEFAULT 2,
+                twitch_poll_seconds INTEGER DEFAULT 90,
+                twitch_offline_grace_seconds INTEGER DEFAULT 300,
+                twitch_last_live_message_id INTEGER,
+                twitch_last_check_ts REAL DEFAULT 0.0,
+                twitch_last_seen_live_ts REAL DEFAULT 0.0,
+                twitch_announced_this_stream INTEGER DEFAULT 0
             );
         """)
         conn.execute("""
