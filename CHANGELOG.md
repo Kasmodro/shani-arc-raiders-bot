@@ -1,15 +1,20 @@
 # Changelog – Shani Bot
 Alle relevanten Änderungen am Shani-Bot
 
-[0.9.0] – 2025-12-27 (Aktuelle Sitzung)
+[0.9.1] – 2025-12-27 (Update)
+🛡️ Sicherheit & Voice-Feinschliff
+
+• **Schutz des Squad-Limits:** User erhalten keine `manage_channels` Rechte mehr in Squad-Channels. Dies verhindert das manuelle Umgehen der 2er/3er Begrenzung.
+• **Kanal-Status:** Ersteller können nun den Sprachkanal-Status setzen (z. B. "PvP", "Looten"), um ihre Aktivität anzuzeigen (`set_voice_channel_status`).
+• **Moderation:** Squad-Besitzer behalten das Recht, andere User zu verschieben oder zu kicken (`move_members`).
+• **Auto-Voice Open:** Einführung eines "Open Join"-Channels für Squads ohne Teilnehmerbegrenzung.
+
+[0.9.0] – 2025-12-27
 ✨ System-Modernisierung & Feature-Erweiterung
 
 • **Migration zu SQLite:** Komplette Umstellung der Server-Konfiguration von JSON auf eine robuste SQLite-Datenbank.
-• **Auto-Voice 2.0:** Erweiterung des Squad-Systems auf drei wählbare Typen:
-    - 2er Squads (Limit: 2 Personen)
-    - 3er Squads (Limit: 3 Personen)
-    - Open Squads (Kein Limit)
-• **Zentraler Status-Check:** Neuer Befehl `/shani_status` zeigt die gesamte Bot-Konfiguration (Setcards, Voice, Twitch) auf einen Blick.
+• **Auto-Voice 2.0:** Erweiterung des Squad-Systems auf wählbare Typen (2er, 3er).
+• **Zentraler Status-Check:** Neuer Befehl `/shani_status` zeigt die gesamte Bot-Konfiguration auf einen Blick.
 • **GitHub Integration:** Professionelle Repository-Struktur mit `README.md`, `.gitignore` und `requirements.txt`.
 
 🛠️ Technische Optimierungen
