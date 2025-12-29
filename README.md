@@ -52,8 +52,8 @@ Ein leistungsstarker Discord-Bot für die Verwaltung von Raider-Setcards, dynami
 
 1.  **Repository klonen:**
     ```bash
-    git clone https://github.com/Kasmodro/shani-bot.git
-    cd shani-bot
+    git clone https://github.com/Kasmodro/shani-arc-raiders-bot.git
+    cd shani-arc-raiders-bot
     ```
 
 2.  **Abhängigkeiten installieren:**
@@ -106,6 +106,8 @@ You are **explicitly allowed and encouraged** to:
 
 No permission is required — just keep the original license and credits.
 
+Forks do **not** grant any official support or endorsement.
+
 If you build something cool on top of it, feel free to share it with the community 🚀
 
 ## 🛡️ Disclaimer
@@ -122,6 +124,7 @@ The author is **not liable** for:
 - data loss
 - misuse by server members
 - Discord ToS violations caused by misconfiguration
+- actions taken by Discord moderators or automated systems
 
 Use at your own risk.
 
