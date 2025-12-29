@@ -5,9 +5,13 @@ Alle relevanten Änderungen am Shani-Bot
 ✨ Konsolen-Support & Anpassbarkeit
 
 • **Anpassbarer Bot-Name:** Admins können den Anzeigenamen des Bots im Menü und in den Embeds nun ändern (z.B. statt "Shani" ein eigener Name). Der Standard bleibt "Shani".
+• **Slash-Command Dokumentation:** Anleitung zur manuellen Änderung des Hauptbefehls `/shani` (z.B. in `/menu`) in der README ergänzt.
 • **Button-basierte Squad-Erstellung:** Neuer Befehl `/squad` und Button im `/shani` Menü. Dies ermöglicht Konsolenspielern (und PC-Usern) das Erstellen von Kanälen per Klick, ohne einen Join-Channel nutzen zu müssen.
 • **Automatischer 2-Minuten-Cleanup:** Kanäle, die erstellt, aber nicht betreten wurden, werden nach 2 Minuten automatisch gelöscht, um die Serverübersicht zu wahren.
 • **Verbesserte User-Experience:** Bei manueller Erstellung erhält der User einen direkten Link zum Kanal, falls er nicht automatisch verschoben werden konnte.
+
+🛠️ Fehlerbehebungen & Stabilität
+• **Datenbank-Migration:** Automatische Migration der Spalte `bot_custom_name` für bestehende Installationen hinzugefügt, um Startfehler zu vermeiden.
 
 [1.0.0] – 2025-12-29
 ✨ Das interaktive UI-Update (Full Interactive Release)
