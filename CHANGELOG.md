@@ -7,6 +7,7 @@ Alle relevanten Änderungen am Shani-Bot | All relevant changes to Shani Bot
 ### 🇩🇪 Deutsch
 ✨ **YouTube & Stabilität**
 - **YouTube Live-Alerts:** Neues Modul zur Erkennung von YouTube-Live-Streams ohne API-Key. Unterstützt Handles (z. B. `@alexanderfuehren`) und Channel-IDs.
+- **Angleichung an Twitch:** YouTube-Alerts bieten nun dieselben Konfigurationsmöglichkeiten (Stable-Checks, Polling-Rate, Offline-Grace) wie das Twitch-Modul.
 - **Zweisprachiges Changelog:** Dokumentation nun konsistent in Deutsch und Englisch.
 
 ✨ **Konsolen-Support & Anpassbarkeit**
@@ -17,11 +18,12 @@ Alle relevanten Änderungen am Shani-Bot | All relevant changes to Shani Bot
 - **Modulare Struktur:** Twitch-Logik in `modules/twitch.py` ausgelagert.
 
 🛠️ **Fehlerbehebungen**
-- **Datenbank-Migration:** Automatische Migration für `bot_custom_name` und YouTube-Spalten hinzugefügt.
+- **Datenbank-Migration:** Automatische Migration für `bot_custom_name` und YouTube-Spalten (inkl. neuer Konfigurationsoptionen) hinzugefügt.
 
 ### 🇺🇸 English
 ✨ **YouTube & Stability**
 - **YouTube Live Alerts:** New module for detecting YouTube live streams without an API key. Supports handles (e.g., `@alexanderfuehren`) and channel IDs.
+- **Consistency with Twitch:** YouTube alerts now offer the same configuration options (stable checks, polling rate, offline grace) as the Twitch module.
 - **Bilingual Changelog:** Documentation now consistently provided in German and English.
 
 ✨ **Console Support & Customization**
@@ -32,7 +34,7 @@ Alle relevanten Änderungen am Shani-Bot | All relevant changes to Shani Bot
 - **Modular Structure:** Moved Twitch logic to `modules/twitch.py`.
 
 🛠️ **Bug Fixes**
-- **Database Migration:** Added automatic migration for `bot_custom_name` and YouTube columns.
+- **Database Migration:** Added automatic migration for `bot_custom_name` and YouTube columns (including new configuration options).
 
 ---
 

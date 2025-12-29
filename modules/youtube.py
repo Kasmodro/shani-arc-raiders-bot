@@ -162,9 +162,10 @@ class YoutubeCog(commands.Cog):
                     continue
 
                 now = time.time()
+                poll_seconds = int(cfg.get("youtube_poll_seconds", YT_DEFAULT_POLL_SECONDS))
                 last_check = float(cfg.get("youtube_last_check_ts", 0.0))
-                # YT Polling etwas langsamer
-                if (now - last_check) < YT_DEFAULT_POLL_SECONDS:
+                
+                if (now - last_check) < poll_seconds:
                     continue
 
                 await update_guild_cfg(guild.id, youtube_last_check_ts=now)
@@ -178,6 +179,9 @@ class YoutubeCog(commands.Cog):
                 live_now = meta["is_live"]
                 prev_live = yt_live_state.get(guild.id, False)
 
+                stable_checks = int(cfg.get("youtube_stable_checks", 2))
+                offline_grace = int(cfg.get("youtube_offline_grace_seconds", YT_OFFLINE_GRACE_SECONDS_DEFAULT))
+
                 if live_now:
                     yt_live_hits[guild.id] = yt_live_hits.get(guild.id, 0) + 1
                     yt_off_hits[guild.id] = 0
@@ -190,7 +194,7 @@ class YoutubeCog(commands.Cog):
                 last_seen = float(cfg.get("youtube_last_seen_live_ts", 0.0))
 
                 # Live gehen
-                if (not announced) and (not prev_live) and live_now and yt_live_hits[guild.id] >= 2:
+                if (not announced) and (not prev_live) and live_now and yt_live_hits[guild.id] >= stable_checks:
                     yt_live_state[guild.id] = True
                     await self.post_live(guild, cfg, meta)
                     await update_guild_cfg(guild.id, youtube_announced_this_stream=1)
@@ -200,8 +204,8 @@ class YoutubeCog(commands.Cog):
                     yt_live_state[guild.id] = True
 
                 # Offline gehen
-                if announced and prev_live and (not live_now) and yt_off_hits[guild.id] >= 3:
-                    if (now - last_seen) >= YT_OFFLINE_GRACE_SECONDS_DEFAULT:
+                if announced and prev_live and (not live_now) and yt_off_hits[guild.id] >= stable_checks:
+                    if (now - last_seen) >= offline_grace:
                         yt_live_state[guild.id] = False
                         await self.edit_to_offline(guild, cfg, meta)
                         await update_guild_cfg(guild.id, youtube_announced_this_stream=0)
@@ -238,7 +242,24 @@ class YoutubeCog(commands.Cog):
 
     @app_commands.command(name="setup_youtubelive", description="YouTube Live Alerts (Scraping-basiert).")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def setup_youtubelive(self, interaction: discord.Interaction, handle_or_id: str, announce_channel: discord.TextChannel, ping_role: discord.Role | None = None):
+    @app_commands.describe(
+        handle_or_id="z.B. @tagesschau oder UC...",
+        announce_channel="Textkanal für Live-Meldungen",
+        ping_role="Optional: Rolle die beim Live-Start gepingt wird",
+        stable_checks="Anti-Zick: wie viele gleiche Ergebnisse nötig (empfohlen 2)",
+        poll_seconds="Abfragerate in Sekunden (min 60, empfohlen 300)",
+        offline_grace_minutes="Wie lange muss er offline sein, bis es als 'Stream beendet' gilt (Standard 10)"
+    )
+    async def setup_youtubelive(
+        self,
+        interaction: discord.Interaction,
+        handle_or_id: str,
+        announce_channel: discord.TextChannel,
+        ping_role: discord.Role | None = None,
+        stable_checks: app_commands.Range[int, 1, 5] = 2,
+        poll_seconds: app_commands.Range[int, 60, 1200] = 300,
+        offline_grace_minutes: app_commands.Range[int, 0, 120] = 10
+    ):
         channel = extract_yt_channel(handle_or_id)
         from bot import update_guild_cfg
         await update_guild_cfg(
@@ -247,10 +268,20 @@ class YoutubeCog(commands.Cog):
             youtube_channel=channel,
             youtube_announce_channel_id=announce_channel.id,
             youtube_ping_role_id=ping_role.id if ping_role else None,
+            youtube_stable_checks=max(1, int(stable_checks)),
+            youtube_poll_seconds=max(60, int(poll_seconds)),
+            youtube_offline_grace_seconds=max(0, int(offline_grace_minutes) * 60),
             youtube_announced_this_stream=0,
-            youtube_last_check_ts=0.0
+            youtube_last_check_ts=0.0,
+            youtube_last_seen_live_ts=0.0
         )
-        await interaction.response.send_message(f"✅ YouTube Live-Alerts für **{channel}** in {announce_channel.mention} aktiviert.", ephemeral=True)
+        await interaction.response.send_message(
+            f"✅ YouTube Live-Alerts aktiviert.\n"
+            f"📺 YouTube: **{channel}**\n"
+            f"📢 Kanal: {announce_channel.mention}\n"
+            f"🔇 Stabil: **{stable_checks}** | ⏲️ Poll: **{poll_seconds}s** | 🧊 Offline-Grace: **{offline_grace_minutes} min**",
+            ephemeral=True
+        )
 
     @app_commands.command(name="youtubelive_status", description="Zeigt den YouTube-Live Status.")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -261,11 +292,16 @@ class YoutubeCog(commands.Cog):
             await interaction.response.send_message("ℹ️ YouTube-Alerts sind deaktiviert.", ephemeral=True)
             return
         
+        announce_ch = interaction.guild.get_channel(int(cfg.get("youtube_announce_channel_id", 0)))
+        role = interaction.guild.get_role(int(cfg["youtube_ping_role_id"])) if cfg.get("youtube_ping_role_id") else None
+
         await interaction.response.send_message(
             f"✅ YouTube Status:\n"
             f"📺 Kanal: **{cfg.get('youtube_channel')}**\n"
-            f"📢 Kanal: <#{cfg.get('youtube_announce_channel_id')}>\n"
-            f"🔴 Live (intern): {'LIVE' if yt_live_state.get(interaction.guild_id) else 'OFFLINE'}",
+            f"📢 Kanal: {announce_ch.mention if announce_ch else 'FEHLT'}\n"
+            f"🏷️ Ping: **{role.name if role else '—'}**\n"
+            f"🔇 Stable: **{cfg.get('youtube_stable_checks', 2)}** | ⏲️ Poll: **{cfg.get('youtube_poll_seconds', 300)}s** | 🧊 Offline-Grace: **{int(cfg.get('youtube_offline_grace_seconds', 600))//60} min**\n"
+            f"🔴 Live (intern): **{'LIVE' if yt_live_state.get(interaction.guild_id) else 'OFFLINE'}**",
             ephemeral=True
         )
 

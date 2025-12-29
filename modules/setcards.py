@@ -57,7 +57,10 @@ def _ensure_db_sync() -> None:
                 youtube_last_live_message_id INTEGER,
                 youtube_last_check_ts REAL DEFAULT 0.0,
                 youtube_last_seen_live_ts REAL DEFAULT 0.0,
-                youtube_announced_this_stream INTEGER DEFAULT 0
+                youtube_announced_this_stream INTEGER DEFAULT 0,
+                youtube_stable_checks INTEGER DEFAULT 2,
+                youtube_poll_seconds INTEGER DEFAULT 300,
+                youtube_offline_grace_seconds INTEGER DEFAULT 600
             );
         """)
         conn.execute("""
@@ -94,7 +97,10 @@ def _ensure_db_sync() -> None:
             ("youtube_last_live_message_id", "INTEGER"),
             ("youtube_last_check_ts", "REAL DEFAULT 0.0"),
             ("youtube_last_seen_live_ts", "REAL DEFAULT 0.0"),
-            ("youtube_announced_this_stream", "INTEGER DEFAULT 0")
+            ("youtube_announced_this_stream", "INTEGER DEFAULT 0"),
+            ("youtube_stable_checks", "INTEGER DEFAULT 2"),
+            ("youtube_poll_seconds", "INTEGER DEFAULT 300"),
+            ("youtube_offline_grace_seconds", "INTEGER DEFAULT 600")
         ]
         for col, col_type in youtube_columns:
             try:
