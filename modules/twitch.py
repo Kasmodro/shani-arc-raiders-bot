@@ -129,6 +129,50 @@ class TwitchChannelModal(discord.ui.Modal, title="Twitch Kanal festlegen"):
         await update_guild_cfg(interaction.guild_id, twitch_channel=channel)
         await interaction.response.send_message(f"✅ Twitch-Kanal auf **{channel}** gesetzt.", ephemeral=True)
 
+class TwitchSettingsModal(discord.ui.Modal, title="Twitch Feineinstellungen"):
+    stable = discord.ui.TextInput(
+        label="Stable Checks (1-5)",
+        placeholder="Standard: 2",
+        min_length=1,
+        max_length=1,
+        required=True
+    )
+    poll = discord.ui.TextInput(
+        label="Poll Sekunden (30-600)",
+        placeholder="Standard: 90",
+        min_length=2,
+        max_length=3,
+        required=True
+    )
+    grace = discord.ui.TextInput(
+        label="Offline Grace Minuten (0-60)",
+        placeholder="Standard: 5",
+        min_length=1,
+        max_length=2,
+        required=True
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            s = int(self.stable.value)
+            p = int(self.poll.value)
+            g = int(self.grace.value)
+            
+            if not (1 <= s <= 5): raise ValueError("Stable muss zwischen 1-5 liegen.")
+            if not (30 <= p <= 600): raise ValueError("Poll muss zwischen 30-600 liegen.")
+            if not (0 <= g <= 60): raise ValueError("Grace muss zwischen 0-60 liegen.")
+            
+            from bot import update_guild_cfg
+            await update_guild_cfg(
+                interaction.guild_id, 
+                twitch_stable_checks=s,
+                twitch_poll_seconds=p,
+                twitch_offline_grace_seconds=g * 60
+            )
+            await interaction.response.send_message(f"✅ Einstellungen gespeichert:\nStable: {s} | Poll: {p}s | Grace: {g}m", ephemeral=True)
+        except ValueError as e:
+            await interaction.response.send_message(f"❌ Ungültige Eingabe: {e}", ephemeral=True)
+
 class TwitchSetupView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=300)
@@ -174,6 +218,10 @@ class TwitchSetupView(discord.ui.View):
     @discord.ui.button(label="Twitch-Kanal setzen", style=discord.ButtonStyle.primary, row=0)
     async def btn_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(TwitchChannelModal())
+
+    @discord.ui.button(label="Feineinstellungen", style=discord.ButtonStyle.secondary, row=0)
+    async def btn_settings(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(TwitchSettingsModal())
 
     @discord.ui.select(cls=discord.ui.ChannelSelect, channel_types=[discord.ChannelType.text], placeholder="📢 Ankündigungs-Kanal wählen", row=1)
     async def select_announce(self, interaction: discord.Interaction, select: discord.ui.ChannelSelect):

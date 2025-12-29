@@ -111,6 +111,50 @@ class YoutubeChannelModal(discord.ui.Modal, title="YouTube Kanal festlegen"):
         await update_guild_cfg(interaction.guild_id, youtube_channel=channel)
         await interaction.response.send_message(f"✅ YouTube-Kanal auf **{channel}** gesetzt.", ephemeral=True)
 
+class YoutubeSettingsModal(discord.ui.Modal, title="YouTube Feineinstellungen"):
+    stable = discord.ui.TextInput(
+        label="Stable Checks (1-5)",
+        placeholder="Standard: 2",
+        min_length=1,
+        max_length=1,
+        required=True
+    )
+    poll = discord.ui.TextInput(
+        label="Poll Sekunden (60-1200)",
+        placeholder="Standard: 300",
+        min_length=2,
+        max_length=4,
+        required=True
+    )
+    grace = discord.ui.TextInput(
+        label="Offline Grace Minuten (0-120)",
+        placeholder="Standard: 10",
+        min_length=1,
+        max_length=3,
+        required=True
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            s = int(self.stable.value)
+            p = int(self.poll.value)
+            g = int(self.grace.value)
+            
+            if not (1 <= s <= 5): raise ValueError("Stable muss zwischen 1-5 liegen.")
+            if not (60 <= p <= 1200): raise ValueError("Poll muss zwischen 60-1200 liegen.")
+            if not (0 <= g <= 120): raise ValueError("Grace muss zwischen 0-120 liegen.")
+            
+            from bot import update_guild_cfg
+            await update_guild_cfg(
+                interaction.guild_id, 
+                youtube_stable_checks=s,
+                youtube_poll_seconds=p,
+                youtube_offline_grace_seconds=g * 60
+            )
+            await interaction.response.send_message(f"✅ Einstellungen gespeichert:\nStable: {s} | Poll: {p}s | Grace: {g}m", ephemeral=True)
+        except ValueError as e:
+            await interaction.response.send_message(f"❌ Ungültige Eingabe: {e}", ephemeral=True)
+
 class YoutubeSetupView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=300)
@@ -156,6 +200,10 @@ class YoutubeSetupView(discord.ui.View):
     @discord.ui.button(label="YouTube-Kanal setzen", style=discord.ButtonStyle.primary, row=0)
     async def btn_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(YoutubeChannelModal())
+
+    @discord.ui.button(label="Feineinstellungen", style=discord.ButtonStyle.secondary, row=0)
+    async def btn_settings(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(YoutubeSettingsModal())
 
     @discord.ui.select(cls=discord.ui.ChannelSelect, channel_types=[discord.ChannelType.text], placeholder="📢 Ankündigungs-Kanal wählen", row=1)
     async def select_announce(self, interaction: discord.Interaction, select: discord.ui.ChannelSelect):

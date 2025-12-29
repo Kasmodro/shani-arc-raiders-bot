@@ -13,6 +13,7 @@ Alle relevanten Änderungen am Shani-Bot | All relevant changes to Shani Bot
 
 ✨ **Konsolen-Support & Anpassbarkeit**
 - **Anpassbarer Bot-Name:** Admins können den Anzeigenamen des Bots im Menü und in den Embeds nun ändern.
+- **Interaktive Feineinstellungen:** Neue Buttons in den Setup-Menüs für Twitch und YouTube ermöglichen das direkte Einstellen von Stable-Checks, Polling-Rate und Offline-Grace via Modal-Dialog.
 - **Slash-Command Dokumentation:** Anleitung zur manuellen Änderung des Hauptbefehls `/shani` in der README ergänzt.
 - **Button-basierte Squad-Erstellung:** Neuer Befehl `/squad` und Button im `/shani` Menü für Konsolenspieler.
 - **Automatischer 2-Minuten-Cleanup:** Leere Kanäle werden nach 2 Minuten gelöscht.
@@ -30,6 +31,7 @@ Alle relevanten Änderungen am Shani-Bot | All relevant changes to Shani Bot
 
 ✨ **Console Support & Customization**
 - **Customizable Bot Name:** Admins can now change the bot's display name in menus and embeds.
+- **Interactive Fine-tuning:** New buttons in Twitch and YouTube setup menus allow direct configuration of stable checks, polling rate, and offline grace via modal dialogs.
 - **Slash Command Documentation:** Added instructions to README for renaming the `/shani` command.
 - **Button-based Squad Creation:** New `/squad` command and button in `/shani` menu for console players.
 - **Automatic 2-Minute Cleanup:** Unused channels are deleted after 2 minutes.
