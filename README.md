@@ -188,6 +188,29 @@ If you build something cool — share it 🚀
 
 ---
 
+## 🇩🇪 Zusammenfassung (Deutsch)
+
+Shani ist ein moderner Discord-Bot, der speziell für **ARC Raiders** Communities entwickelt wurde. Er automatisiert die Erstellung von Squad-Channels, bietet Spieler-Profile (Setcards) und Twitch-Live-Benachrichtigungen.
+
+### ✨ Was Shani bietet
+*   🎧 **Auto-Voice Squads:** Dynamische Kanäle für 2er, 3er oder offene Squads.
+*   🧾 **Raider Setcards:** Detaillierte Spielerprofile und Suche nach Mitspielern.
+*   🟣 **Twitch Live-Alerts:** Benachrichtigungen ohne Twitch-API-Key.
+*   🧭 **Interaktive UI:** Einfache Bedienung über Buttons und Menüs.
+*   🔒 **Sicherheit:** Keine Administrator-Rechte erforderlich.
+
+### ⚡ Schnelleinrichtung
+1.  Repository klonen: `git clone https://github.com/Kasmodro/shani-arc-raiders-bot.git`
+2.  Virtuelle Umgebung erstellen: `python3 -m venv venv && source venv/bin/activate`
+3.  Abhängigkeiten installieren: `pip install -r requirements.txt`
+4.  `.env` Datei erstellen (siehe `.env.example`) und Bot-Token eintragen.
+5.  Bot starten: `python3 bot.py`
+
+### 🆘 Support
+Bei Fragen oder Problemen besuche uns auf unserem [Discord Server](https://discord.gg/UhhJtFteun).
+
+---
+
 ## 🛡️ Disclaimer
 This software is provided **"as is"**, without warranty. Server owners are responsible for bot configuration, assigned permissions, and usage within their server.
 The author is not liable for moderation issues, data loss, Discord ToS violations, or misconfiguration.
