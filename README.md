@@ -115,6 +115,7 @@ Players create personal profiles including playstyle, platform, and experience.
 ### 🧭 Interactive UI
 *   One command: `/shani`
 *   Buttons & menus only — no command spam.
+*   **Customizable Bot Name:** Server admins can change Shani's display name via the admin menu.
 *   Admin features are hidden from regular users.
 
 ---
@@ -122,7 +123,7 @@ Players create personal profiles including playstyle, platform, and experience.
 ## 🛠️ Admin Usage
 1.  Run `/shani`
 2.  Click **Admin Setup**
-3.  Configure Roles, Channels, and Twitch notifications.
+3.  Configure Roles, Channels, Twitch notifications, or **Change Bot Name**.
 Everything is guided — no memorizing commands.
 
 ## 👤 User Usage
@@ -201,6 +202,7 @@ Shani ist ein moderner Discord-Bot, der speziell für **ARC Raiders** Communitie
 *   🧾 **Raider Setcards:** Detaillierte Spielerprofile und Suche nach Mitspielern.
 *   🟣 **Twitch Live-Alerts:** Benachrichtigungen ohne Twitch-API-Key.
 *   🧭 **Interaktive UI:** Einfache Bedienung über Buttons und Menüs.
+*   🏷️ **Anpassbarer Name:** Der Bot-Name kann über das Admin-Menü geändert werden.
 *   🔒 **Sicherheit:** Keine Administrator-Rechte erforderlich.
 
 ### ⚡ Schnelleinrichtung
