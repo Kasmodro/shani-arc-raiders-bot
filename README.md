@@ -1,5 +1,7 @@
 # Shani Bot – ARC Raiders Discord Bot
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Shani is a powerful Discord bot designed specifically for **ARC Raiders** communities. It streamlines squad management, player profiles, and stream notifications to enhance the gaming experience.
 
 ## 🚀 Main Features
@@ -92,8 +94,45 @@ python3 cleanup_commands.py
 ```
 Danach den Bot neu starten und Discord (Strg+R) aktualisieren.
 
+## 🤝 Community & Forks
+
+This project is intentionally open-source.
+
+You are **explicitly allowed and encouraged** to:
+- fork this repository
+- modify the code
+- run your own version of the bot
+- adapt it for your own Discord community
+
+No permission is required — just keep the original license and credits.
+
+If you build something cool on top of it, feel free to share it with the community 🚀
+
+## 🛡️ Disclaimer
+
+This bot is provided **"as is"**, without warranty of any kind.
+
+Server owners and administrators are **fully responsible** for:
+- how the bot is configured
+- which permissions it is granted
+- how it is used within their Discord server
+
+The author is **not liable** for:
+- moderation issues
+- data loss
+- misuse by server members
+- Discord ToS violations caused by misconfiguration
+
+Use at your own risk.
+
+### 🇩🇪 Haftungsausschluss (Kurzfassung)
+
+Die Nutzung des Bots erfolgt **auf eigene Verantwortung**.
+
+Server-Admins sind selbst dafür verantwortlich, welche Rechte der Bot erhält und wie er eingesetzt wird. Der Entwickler übernimmt keine Haftung für Fehlkonfigurationen, Missbrauch oder Regelverstöße auf dem Server.
+
 ## 📄 Lizenz
-Dieses Projekt ist Open Source und für den Einsatz auf privaten Discord-Servern gedacht. Weiterverwendung oder Anpassungen sind erlaubt, solange der ursprüngliche Autor genannt wird.
+Dieses Projekt ist unter der **MIT-Lizenz** lizenziert. Weiterverwendung oder Anpassungen sind ausdrücklich erlaubt, solange der ursprüngliche Autor genannt wird.
 
 ---
 ### 🆘 Support
