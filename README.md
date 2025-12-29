@@ -1,8 +1,18 @@
-# Shani Bot
+# Shani Bot – ARC Raiders Discord Bot
+
+Shani is a powerful Discord bot designed specifically for **ARC Raiders** communities. It streamlines squad management, player profiles, and stream notifications to enhance the gaming experience.
+
+## 🚀 Main Features
+- **Auto Voice Channels:** Dynamic squad channels (2-player, 3-player, or open squads).
+- **Raider Setcards:** Comprehensive player profiles for better squad matching.
+- **Twitch Live Alerts:** Real-time stream notifications without the need for a Twitch API key.
+- **Interactive UI:** Fully driven by Discord Slash Commands and Buttons for a modern experience.
+
+---
 
 Ein leistungsstarker Discord-Bot für die Verwaltung von Raider-Setcards, dynamische Auto-Voice Channels (2er, 3er, Open) und Twitch-Live-Alerts ohne API-Key. Nun mit vollständig interaktivem UI über Slash-Commands und Buttons.
 
-## 🚀 Features
+## 🚀 Features Detail (Deutsch)
 
 ### ✨ Interaktive Benutzeroberfläche
 *   **Zentrales Menü:** Der Befehl `/shani` ist der einzige Einstiegspunkt, den User und Admins brauchen. Alles lässt sich über Buttons und Menüs steuern.
