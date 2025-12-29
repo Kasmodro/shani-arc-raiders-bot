@@ -23,23 +23,21 @@ Use the official invite link below to add **Shani** to your Discord server.
 > **Administrator permission is NOT required.**
 
 ### Invite URL
-
 https://discord.com/api/oauth2/authorize?client_id=1319253457599041537&permissions=285223056&scope=bot%20applications.commands
 
 ### Required Server Permissions
-
 - Manage Channels
 - Move Members
 - Send Messages
 - Embed Links
 - Read Message History
 - Manage Threads
-- Manage Messages (bot-owned content only)
-- Connect / Speak (voice features)
+- Manage Messages *(bot-owned content only)*
+- Connect / Speak *(voice features)*
 
-> ℹ️ Make sure the bot also has the required **channel permissions** in the target categories and channels.
+ℹ️ Make sure the bot also has the required **channel permissions** in the target categories and channels.
 
-For a detailed permission breakdown, see [PERMISSIONS.md](PERMISSIONS.md).
+For a detailed permission breakdown, see **[PERMISSIONS.md](PERMISSIONS.md)**.
 
 ## 🚀 Main Features
 - **Auto Voice Channels:** Dynamic squad channels (2-player, 3-player, or open squads).
