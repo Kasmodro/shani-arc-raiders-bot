@@ -4,7 +4,7 @@
 [![Python: 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Release: v1.0.0](https://img.shields.io/badge/Release-v1.0.0-green.svg)](https://github.com/Kasmodro/shani-arc-raiders-bot/releases)
 
-Shani is a powerful Discord bot designed specifically for **ARC Raiders** communities. It streamlines squad management, player profiles, and stream notifications to enhance the gaming experience.
+Shani is a comprehensive Discord bot tailored specifically for **ARC Raiders** communities. It enhances the gaming experience by streamlining squad management, player profiles, and stream notifications.
 
 ## ⚡ Quick Start
 ```bash
@@ -20,36 +20,36 @@ python3 bot.py
 
 Use the official invite link below to add **Shani** to your Discord server.
 
-> ⚠️ Shani requires specific permissions to fully manage voice channels, squads, and interactive features.  
-> **Administrator permission is NOT required.**  
-> Shani only requests the minimum permissions necessary for its features.
+> ⚠️ Shani requires specific permissions to manage voice channels, squads, and interactive features.  
+> **Administrator privileges are NOT required.**  
+> Shani only requests the minimum permissions necessary to function.
 
 ### Invite URL
 https://discord.com/api/oauth2/authorize?client_id=1319253457599041537&permissions=285223056&scope=bot%20applications.commands
 
-> 🔐 Shani only uses the permissions listed above and never requests administrator access.
+> 🔐 Shani strictly adheres to the permissions listed above and never requests full administrator access.
 
 ### Required Server Permissions
-The following permissions are required for Shani to create and manage dynamic voice channels and interactive features:
+Shani requires the following permissions to create and manage dynamic voice channels and interactive features:
 
-- Manage Channels
-- Move Members
-- Send Messages
-- Embed Links
-- Read Message History
-- Manage Threads
-- Manage Messages *(bot-owned content only)*
-- Connect / Speak *(voice features)*
+- **Manage Channels**
+- **Move Members**
+- **Send Messages**
+- **Embed Links**
+- **Read Message History**
+- **Manage Threads**
+- **Manage Messages** *(bot-owned content only)*
+- **Connect / Speak** *(voice features)*
 
-ℹ️ Make sure the bot also has the required **channel permissions** in the target categories and channels.
+ℹ️ Ensure the bot has the necessary **channel permissions** within the target categories and channels.
 
-For a detailed permission breakdown, see **[PERMISSIONS.md](PERMISSIONS.md)**.
+For a detailed breakdown, see the **[PERMISSIONS.md](PERMISSIONS.md)** guide.
 
-## 🚀 Main Features
+## 🚀 Key Features
 - **Auto Voice Channels:** Dynamic squad channels (2-player, 3-player, or open squads).
-- **Raider Setcards:** Comprehensive player profiles for better squad matching.
-- **Twitch Live Alerts:** Real-time stream notifications without the need for a Twitch API key.
-- **Interactive UI:** Fully driven by Discord Slash Commands and Buttons for a modern experience.
+- **Raider Setcards:** Comprehensive player profiles to facilitate better squad matching.
+- **Twitch Live Alerts:** Real-time stream notifications—no Twitch API key required.
+- **Interactive UI:** A modern experience fully driven by Discord Slash Commands and Buttons.
 
 ---
 
