@@ -107,6 +107,33 @@ Damit alle Funktionen reibungslos laufen, benötigt der Bot folgende Einstellung
     python3 bot.py
     ```
 
+## 🖥️ Automatischer Start (Systemd Service)
+Damit der Bot nach einem Server-Neustart automatisch startet, empfiehlt sich die Einrichtung als System-Service:
+
+1.  **Service-Datei erstellen:** `sudo nano /etc/systemd/system/shani.service`
+2.  **Inhalt einfügen** (Pfade anpassen!):
+    ```ini
+    [Unit]
+    Description=Shani Discord Bot
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=DEIN_USER
+    WorkingDirectory=/home/DEIN_USER/shani-arc-raiders-bot
+    ExecStart=/usr/bin/python3 bot.py
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+3.  **Aktivieren:**
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl enable shani.service
+    sudo systemctl start shani.service
+    ```
+
 ## 🛠️ Bedienung
 
 ### Für Admins
