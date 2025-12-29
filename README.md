@@ -64,6 +64,8 @@ Damit alle Funktionen reibungslos laufen, benötigt der Bot folgende Einstellung
 *   **Send Messages / Embed Links:** Benachrichtigungen & Setcards
 *   **Connect / Speak:** Voice-Support
 
+⚠️ **Only grant the permissions listed above. Administrator permissions are not required.**
+
 ## 📋 Voraussetzungen
 *   Python 3.12+
 *   `discord.py`
@@ -162,5 +164,5 @@ Dieses Projekt ist unter der **MIT-Lizenz** lizenziert. Weiterverwendung oder An
 
 ---
 ### 🆘 Support
-Bei Fragen oder Problemen kannst du gerne dem Discord-Server beitreten:
-[https://discord.gg/UhhJtFteun](https://discord.gg/UhhJtFteun)
+*   **Bug reports & feature requests:** [GitHub Issues](https://github.com/Kasmodro/shani-arc-raiders-bot/issues)
+*   **Setup questions & discussion:** [Discord Server](https://discord.gg/UhhJtFteun)
