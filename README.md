@@ -92,6 +92,7 @@ Shani needs these permissions to function correctly:
 ### 🎧 Auto Voice Channels
 Separate join channels for **2-Player Squads**, **3-Player Squads**, and **Open Squads**.
 *   **Button Support (Consoles):** Squads can be created via buttons using `/squad` or the `/shani` menu — perfect for console players who cannot easily use join-channels.
+*   **Smart Cleanup:** Channels created but not joined are automatically deleted after **2 minutes** to keep the server organized.
 *   Channels are created dynamically.
 *   Empty channels are removed automatically.
 
@@ -195,6 +196,7 @@ Shani ist ein moderner Discord-Bot, der speziell für **ARC Raiders** Communitie
 
 ### 🎧 Auto-Voice Squads
 *   **Button-Support (Konsolen):** Squads können über Buttons in `/squad` oder dem `/shani` Menü erstellt werden – ideal für Konsolenspieler.
+*   **Smart Cleanup:** Kanäle, die erstellt, aber nicht betreten wurden, werden nach **2 Minuten** automatisch gelöscht.
 *   Dynamische Kanäle für 2er, 3er oder offene Squads.
 *   🧾 **Raider Setcards:** Detaillierte Spielerprofile und Suche nach Mitspielern.
 *   🟣 **Twitch Live-Alerts:** Benachrichtigungen ohne Twitch-API-Key.

@@ -1,6 +1,13 @@
 # Changelog – Shani Bot
 Alle relevanten Änderungen am Shani-Bot
 
+[1.1.0] – 2025-12-29
+✨ Konsolen-Support & Smart Cleanup
+
+• **Button-basierte Squad-Erstellung:** Neuer Befehl `/squad` und Button im `/shani` Menü. Dies ermöglicht Konsolenspielern (und PC-Usern) das Erstellen von Kanälen per Klick, ohne einen Join-Channel nutzen zu müssen.
+• **Automatischer 2-Minuten-Cleanup:** Kanäle, die erstellt, aber nicht betreten wurden, werden nach 2 Minuten automatisch gelöscht, um die Serverübersicht zu wahren.
+• **Verbesserte User-Experience:** Bei manueller Erstellung erhält der User einen direkten Link zum Kanal, falls er nicht automatisch verschoben werden konnte.
+
 [1.0.0] – 2025-12-29
 ✨ Das interaktive UI-Update (Full Interactive Release)
 
