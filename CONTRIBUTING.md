@@ -23,7 +23,7 @@ Contributions are welcome, but please follow the guidelines below to keep the pr
 ### Guidelines
 * Keep changes focused and minimal
 * Follow the existing code style
-* Do not commit secrets (`.env`, tokens, private configs)
+* **Never commit secrets!** (`.env`, tokens, private configs). Use [.env.example](.env.example) as a template.
 * Avoid force-pushes on shared branches
 * Test your changes before submitting
 
@@ -53,7 +53,7 @@ If you find a bug or have a feature request:
 ### Richtlinien
 * Änderungen bitte klein und fokussiert halten
 * Am bestehenden Code-Stil orientieren
-* Keine Secrets committen (`.env`, Tokens, private Dateien)
+* **Niemals Secrets committen!** (`.env`, Tokens, private Dateien). Nutze [.env.example](.env.example) als Vorlage.
 * Keine Force-Pushes auf gemeinsame Branches
 * Änderungen vorher testen
 

@@ -92,9 +92,9 @@ Damit alle Funktionen reibungslos laufen, benötigt der Bot folgende Einstellung
 3.  **Konfiguration (.env Datei):**
     Der Bot benötigt einen Discord-Token, um online zu gehen. Diesen speicherst du sicher in einer Datei namens `.env`.
     
-    *   Erstelle im Hauptverzeichnis des Bots eine neue Datei mit dem Namen `.env`:
+    *   Verwende die Vorlage [.env.example](.env.example) als Basis:
         ```bash
-        touch .env
+        cp .env.example .env
         ```
     *   Öffne die Datei (z. B. mit `nano .env`) und füge deinen Bot-Token ein:
         ```env
