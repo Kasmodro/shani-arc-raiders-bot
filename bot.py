@@ -121,6 +121,59 @@ async def load_modules():
 # ============================================================
 # VOICE CONFIG
 # ============================================================
+async def _create_squad_channel(member: discord.Member, target_limit: int):
+    """Interne Hilfsfunktion zur Erstellung eines Squad-Channels (für Event & Buttons)"""
+    cfg = await get_guild_cfg(member.guild.id)
+    if not cfg: return None
+    
+    category_id = cfg.get("voice_category_id")
+    if not category_id: return None
+    
+    category = member.guild.get_channel(int(category_id))
+    if not isinstance(category, discord.CategoryChannel):
+        logger.error(f"[{member.guild.name}] Ziel-Kategorie fehlt/ungültig (ID={category_id}).")
+        return None
+
+    try:
+        channel = await member.guild.create_voice_channel(
+            name=squad_channel_name(member, target_limit),
+            category=category,
+            user_limit=target_limit
+        )
+        logger.info(f"➕ [{member.guild.name}] Created {target_limit if target_limit > 0 else 'Open'}: {channel.name} (owner={member.display_name})")
+        
+        # Berechtigungen vorbereiten
+        perms_kwargs = {
+            "connect": True,
+            "speak": True,
+            "move_members": True,
+            "manage_channels": False
+        }
+        if hasattr(discord.PermissionOverwrite(), "set_voice_channel_status"):
+            perms_kwargs["set_voice_channel_status"] = True
+
+        await channel.set_permissions(member, **perms_kwargs)
+        
+        # User verschieben falls er in einem Voice ist
+        if member.voice:
+            await member.move_to(channel)
+
+        # --- Setcard-Info im Channel-Textchat ---
+        from modules.setcards import get_card, build_setcard_embed
+        card = await get_card(member.guild.id, member.id)
+        if card:
+            embed = build_setcard_embed(member, card)
+            embed.title = f"Besitzer von {channel.name}"
+            try:
+                await channel.send(embed=embed)
+            except:
+                pass
+        
+        return channel
+    except Exception as e:
+        logger.error(f"[{member.guild.name}] Error in _create_squad_channel: {e}")
+        return None
+
 async def set_guild_voice_cfg(guild_id: int, create_channel_id: int, create_channel_3_id: int, create_channel_open_id: int, voice_category_id: int) -> None:
     await update_guild_cfg(
         guild_id,
@@ -551,56 +604,11 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             target_limit = 0
 
     if target_limit != -1:
-        category = member.guild.get_channel(int(category_id))
-        if not isinstance(category, discord.CategoryChannel):
-            logger.error(f"[{member.guild.name}] Ziel-Kategorie fehlt/ungültig (ID={category_id}).")
-            return
-
-        try:
-            channel = await member.guild.create_voice_channel(
-                name=squad_channel_name(member, target_limit),
-                category=category,
-                user_limit=target_limit
-            )
-            logger.info(f"➕ [{member.guild.name}] Created {target_limit if target_limit > 0 else 'Open'}: {channel.name} (owner={member.display_name})")
-        except Exception as e:
-            logger.error(f"[{member.guild.name}] Error creating voice channel: {e}")
-            return
-
-        try:
-            # Berechtigungen vorbereiten (Prüfung auf Gültigkeit für discord.py)
-            # set_voice_channel_status ist relativ neu, wir stellen sicher, dass es keine Fehler wirft
-            perms_kwargs = {
-                "connect": True,
-                "speak": True,
-                "move_members": True,
-                "manage_channels": False
-            }
-            
-            # Prüfen ob die Berechtigung in dieser discord.py Version existiert
-            if hasattr(discord.PermissionOverwrite(), "set_voice_channel_status"):
-                perms_kwargs["set_voice_channel_status"] = True
-
-            await channel.set_permissions(member, **perms_kwargs)
-            
-            await member.move_to(channel)
-
-            # --- Setcard-Info im Channel-Textchat ---
-            from modules.setcards import get_card, build_setcard_embed
-            card = await get_card(member.guild.id, member.id)
-            if card:
-                embed = build_setcard_embed(member, card)
-                embed.title = f"Besitzer von {channel.name}"
-                try:
-                    await channel.send(embed=embed)
-                except:
-                    pass
-
-            # Nach dem Verschieben kurz warten und aufräumen
-            await asyncio.sleep(1.5)
-            await cleanup_empty_squads(member.guild, int(category_id))
-        except Exception as e:
-            logger.error(f"[{member.guild.name}] Error moving member to new channel: {e}")
+        await _create_squad_channel(member, target_limit)
+        
+        # Nach dem Erstellen kurz warten und aufräumen
+        await asyncio.sleep(1.5)
+        await cleanup_empty_squads(member.guild, int(category_id))
 
     # --- Globaler Cleanup bei jedem State-Wechsel ---
     if before.channel or after.channel:
@@ -688,6 +696,46 @@ async def autovoice_disable(interaction: discord.Interaction):
     await interaction.response.send_message("🛑 Auto-Voice wurde deaktiviert.", ephemeral=True)
 
 # ============================================================
+# SQUAD MENU & COMMANDS
+# ============================================================
+class SquadMenuView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+
+    @discord.ui.button(label="2er Squad", style=discord.ButtonStyle.primary, emoji="👥")
+    async def btn_2er(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._create(interaction, 2)
+
+    @discord.ui.button(label="3er Squad", style=discord.ButtonStyle.primary, emoji="👪")
+    async def btn_3er(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._create(interaction, 3)
+
+    @discord.ui.button(label="Open Squad", style=discord.ButtonStyle.secondary, emoji="🔓")
+    async def btn_open(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._create(interaction, 0)
+
+    async def _create(self, interaction: discord.Interaction, limit: int):
+        await interaction.response.defer(ephemeral=True)
+        channel = await _create_squad_channel(interaction.user, limit)
+        if channel:
+            msg = f"✅ Squad-Channel **{channel.name}** wurde erstellt."
+            if not interaction.user.voice:
+                msg += "\n⚠️ Du bist in keinem Voice-Channel, daher konnte ich dich nicht automatisch verschieben."
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Fehler: Auto-Voice ist nicht konfiguriert oder die Kategorie fehlt.", ephemeral=True)
+
+@bot.tree.command(name="squad", description="Öffnet das Menü zum Erstellen eines Squad-Channels.")
+async def squad_cmd(interaction: discord.Interaction):
+    view = SquadMenuView()
+    embed = discord.Embed(
+        title="🎮 Squad erstellen",
+        description="Wähle die Größe deines Squads. Der Channel wird automatisch erstellt.",
+        color=discord.Color.green()
+    )
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+# ============================================================
 # GLOBAL STATUS & MENU COMMANDS
 # ============================================================
 class ShaniMenuView(discord.ui.View):
@@ -710,6 +758,9 @@ class ShaniMenuView(discord.ui.View):
             btn_sc = discord.ui.Button(label="Meine Setcard", style=discord.ButtonStyle.primary, custom_id="shani_menu_sc")
             self.add_item(btn_sc)
             
+            btn_squad = discord.ui.Button(label="🎮 Squad erstellen", style=discord.ButtonStyle.success, custom_id="shani_menu_squad")
+            self.add_item(btn_squad)
+
             btn_find = discord.ui.Button(label="Raider suchen", style=discord.ButtonStyle.secondary, custom_id="shani_menu_find")
             self.add_item(btn_find)
 
@@ -757,6 +808,14 @@ async def shani_menu_listener(interaction: discord.Interaction):
         content = view._header() + "\n\n" + view._status_lines()
         await interaction.response.send_message(content=content, view=view, ephemeral=True)
         view.message = await interaction.original_response()
+    elif cid == "shani_menu_squad":
+        view = SquadMenuView()
+        embed = discord.Embed(
+            title="🎮 Squad erstellen",
+            description="Wähle die Größe deines Squads. Der Channel wird automatisch erstellt und du wirst (falls möglich) verschoben.",
+            color=discord.Color.green()
+        )
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
     elif cid == "shani_menu_find":
         # Interaktive Suche öffnen
         from modules.setcards import ORIENTATION_OPTIONS, EXPERIENCE_OPTIONS, PLATFORM_OPTIONS
