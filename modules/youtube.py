@@ -39,7 +39,7 @@ async def fetch_yt_page(session: aiohttp.ClientSession, yt_channel: str):
         url = f"https://www.youtube.com/channel/{yt_channel}/live"
         
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
         "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
         "Cache-Control": "no-cache"
     }

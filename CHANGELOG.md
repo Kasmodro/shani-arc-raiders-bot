@@ -21,6 +21,7 @@ Alle relevanten Änderungen am Shani-Bot | All relevant changes to Shani Bot
 - **Modulare Struktur:** Twitch-Logik in `modules/twitch.py` ausgelagert.
 
 🛠️ **Fehlerbehebungen**
+- **YouTube Scraping:** Behebung eines Problems, bei dem YouTube-Live-Streams auf Server-IPs durch eine Consent-Seite blockiert wurden (Umstellung auf Googlebot User-Agent).
 - **Datenbank-Migration:** Automatische Migration für `bot_custom_name` und YouTube-Spalten (inkl. neuer Konfigurationsoptionen) hinzugefügt.
 
 ### 🇺🇸 English
@@ -40,6 +41,7 @@ Alle relevanten Änderungen am Shani-Bot | All relevant changes to Shani Bot
 - **Modular Structure:** Moved Twitch logic to `modules/twitch.py`.
 
 🛠️ **Bug Fixes**
+- **YouTube Scraping:** Fixed an issue where YouTube live streams were blocked by a consent page on server IPs (switched to Googlebot user-agent).
 - **Database Migration:** Added automatic migration for `bot_custom_name` and YouTube columns (including new configuration options).
 
 ---
